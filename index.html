@@ -94,6 +94,12 @@
     border:1px solid var(--line); font-weight:700;}
   .counter input{width:64px; min-height:46px; text-align:center; border-radius:12px;
     background:#0c1730; border:1px solid var(--line); color:var(--text); font-size:15px;}
+  /* Adăugare rapidă proteine — chips tappabile */
+  .foodchips{display:flex; flex-wrap:wrap; gap:8px;}
+  .foodchip{min-height:44px; padding:0 13px; border-radius:12px; font-size:13.5px; font-weight:600;
+    background:var(--surface2); border:1px solid var(--line); color:var(--text);}
+  .foodchip b{color:var(--accent2); margin-left:2px;}
+  .foodchip:active{transform:scale(.95); background:rgba(16,185,129,.16); border-color:var(--accent);}
 
   /* Bottom nav — thumb-reachable, clears the home indicator */
   #nav{display:flex; background:#0c1730ee; backdrop-filter:blur(12px);
@@ -222,6 +228,7 @@ const S = {
 
   proteinTitle:"Proteine",
   proteinSub:"Antidotul foamei date de medicament. Țintă {goal} g.",
+  protFoodsHint:"Sau apasă ce ai mâncat — se adună singur:",
   waterTitle:"Apă",
   waterSub:"Țintă {goal} L.",
   stepsTitle:"Pași",
@@ -269,6 +276,9 @@ const S = {
   relogBlood:"Reloghează analizele",
   healthEmpty:"Adaugă valorile de la ultimele tale analize de sânge ca să-ți vezi tabela de scor și cum se mișcă în timp (HDL, LDL, trigliceride etc.).",
   healthAdd:"Adaugă primele analize",
+  bloodFormTitle:"Analizele tale",
+  bloodFormHint:"Completează doar ce ai pe foaie — restul lasă gol. Poți reveni oricând să adaugi.",
+  cancel:"Anulează", saved:"Salvat 💚",
 
   // Jurnal
   jTitle:"Jurnal",
@@ -341,6 +351,22 @@ const CONFIG = {
 
   bloodRetestDays:105,     // ~3,5 luni → nudge de reverificare analize
 };
+
+/* Adăugare rapidă de proteine: apeși un aliment, se adună gramele la total.
+   Editează lista AICI — {label: ce scrie pe buton, g: grame de proteină}.
+   Valori aproximative pentru porția obișnuită. */
+const PROTEIN_FOODS = [
+  {label:"Ou",            g:7},   // 1 ou
+  {label:"Piept pui 100g", g:30},
+  {label:"Ton (conservă)", g:33}, // o conservă ~150g scurs
+  {label:"Iaurt grecesc",  g:15}, // un pahar ~150g
+  {label:"Whey (măsură)",  g:24}, // o lingură de pudră
+  {label:"Brânză vaci 100g", g:11},
+  {label:"Pește 100g",     g:25},
+  {label:"Telemea 100g",   g:17},
+  {label:"Carne slabă 100g", g:26},
+  {label:"Linte/fasole",   g:8},  // o cană gătită
+];
 
 /* ═══════════════════ 3. STORAGE — localStorage, cu migrare ═══════════════════
    Un singur obiect JSON. schemaVersion + loader defensiv = update-urile
@@ -643,6 +669,10 @@ function renderAzi(){
       <button data-action="prot:25">+25 g</button>
       <input id="protCustom" type="number" inputmode="numeric" placeholder="g" />
       <button data-action="prot:custom">${S.add}</button>
+    </div>
+    <p class="s muted" style="margin:12px 0 8px">${S.protFoodsHint}</p>
+    <div class="foodchips">
+      ${PROTEIN_FOODS.map((f,i)=>`<button class="foodchip" data-action="protfood:${i}">${f.label} <b>+${f.g}</b></button>`).join("")}
     </div>
   </div>
 
@@ -1037,6 +1067,7 @@ document.body.addEventListener("click", (e)=>{
   // toggles: "t:field"
   if(a.startsWith("t:")) return toggle(a.slice(2));
   // counters
+  if(a.startsWith("protfood:")){ const f=PROTEIN_FOODS[parseInt(a.split(":")[1])]; if(f) addProtein(f.g); return; }
   if(a.startsWith("prot:")){ const v=a.split(":")[1];
     if(v==="custom"){ const n=readNum("protCustom"); if(n>0) addProtein(Math.round(n)); } else addProtein(parseInt(v)); return; }
   if(a.startsWith("water:")) return addWater(parseInt(a.split(":")[1]));
@@ -1073,6 +1104,7 @@ document.body.addEventListener("click", (e)=>{
       return; }
 
     case "relog-blood": return relogBlood();
+    case "save-blood": return saveBlood();
 
     case "finish-onboarding": {
       const v=id=>document.getElementById(id).value;
@@ -1102,20 +1134,35 @@ document.body.addEventListener("click", (e)=>{
     state.settings.trainingDays=[...set].sort(); save(); render(); return; }
 });
 
+// Câmpurile de analize, într-un loc (cod intern + etichetă + unitate).
+const BLOOD_FIELDS=[["hdl","HDL","mg/dL"],["ldl","LDL","mg/dL"],["nonHdl","Non-HDL","mg/dL"],
+  ["total","Colesterol total","mg/dL"],["trig","Trigliceride","mg/dL"],["glucose","Glucoză","mg/dL"],
+  ["alt","ALT","U/L"],["ast","AST","U/L"],["creatinine","Creatinină","mg/dL"],["magnesium","Magneziu","mg/dL"]];
+
+// Un SINGUR formular cu toate câmpurile, toate OPȚIONALE — completezi ce ai și
+// salvezi o dată. Mult mai bun decât 10 ferestre de prompt una după alta.
 function relogBlood(){
-  // Pornim de la ultima (dacă există) ca să completezi doar ce s-a schimbat.
   const last=state.bloodHistory[state.bloodHistory.length-1] || {};
-  const fields=[["hdl","HDL"],["ldl","LDL"],["nonHdl","Non-HDL"],["total","Colesterol total"],
-    ["trig","Trigliceride"],["glucose","Glucoză"],["alt","ALT"],["ast","AST"],
-    ["creatinine","Creatinină"],["magnesium","Magneziu"]];
-  const entry={date:todayKey()};
-  for(const [f,label] of fields){
-    const v=prompt(label+" (lasă gol = neschimbat)", last[f]??"");
-    if(v===null) return; // a anulat
-    entry[f]= v.trim()===""? last[f] : parseFloat(v);
+  const inputs=BLOOD_FIELDS.map(([f,label,unit])=>`
+    <div><label class="fld">${label} <span class="faint">${unit}</span></label>
+      <input class="text" id="b_${f}" type="number" inputmode="decimal" step="any" value="${last[f]??""}" placeholder="—"/></div>`).join("");
+  openOverlay(`
+    <h2 style="margin-bottom:6px">${S.bloodFormTitle}</h2>
+    <p class="sm muted" style="margin-bottom:14px">${S.bloodFormHint}</p>
+    <div class="grid2">${inputs}</div>
+    <button class="btn primary full" style="margin-top:16px" data-action="save-blood">${S.save}</button>
+    <button class="btn ghost full" style="margin-top:8px" data-action="close-modal">${S.cancel}</button>`);
+}
+function saveBlood(){
+  const last=state.bloodHistory[state.bloodHistory.length-1] || {};
+  const entry={date:todayKey()}; let any=false;
+  for(const [f] of BLOOD_FIELDS){
+    const raw=(document.getElementById("b_"+f).value||"").trim();
+    if(raw!==""){ const n=parseFloat(raw); if(isFinite(n)){ entry[f]=n; any=true; continue; } }
+    if(last[f]!=null) entry[f]=last[f];   // gol → păstrăm valoarea anterioară (dacă există)
   }
-  state.bloodHistory.push(entry); save(); render();
-  alert("Analize salvate. Vei vedea direcția față de data trecută. 💚");
+  if(!any){ closeOverlay(); return; }      // nimic completat → nu salvăm o intrare goală
+  state.bloodHistory.push(entry); save(); closeOverlay(); app.screen="progres"; render();
 }
 
 /* ═══════════════════ 12. SERVICE WORKER + UPDATE BANNER ═══════════════════ */
