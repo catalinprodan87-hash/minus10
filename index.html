@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8" />
+<!-- viewport-fit=cover lets us paint into the iPhone notch / home-indicator area,
+     then we reclaim safe space with env(safe-area-inset-*) in CSS. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0b1220" />
+<!-- iOS "Add to Home Screen" hints: run full-screen, dark status bar, custom title + icon -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="−10" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<link rel="icon" href="./icon-192.png" />
+<link rel="manifest" href="./manifest.json" />
+<title>−10 · drumul meu</title>
+<style>
+  /* ───────────────────────── DESIGN TOKENS ───────────────────────── */
+  :root{
+    --bg:#0b1220; --surface:#121d33; --surface2:#18254181; --line:#243456;
+    --text:#e9eefc; --muted:#90a3c9; --faint:#5e7099;
+    --accent:#10b981; --accent2:#34d399; --accent-d:#0f9d72;
+    --warn:#fbbf24; --danger:#f87171; --gold:#fcd34d;
+    --r:18px; --tap:52px;            /* tap target >= 48px everywhere */
+    --safe-t:env(safe-area-inset-top); --safe-b:env(safe-area-inset-bottom);
+    --safe-l:env(safe-area-inset-left); --safe-r:env(safe-area-inset-right);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%; overflow:hidden;       /* lock the page; we scroll an inner container */
+    overscroll-behavior:none;}                            /* kill rubber-band so it feels native */
+  body{
+    background:var(--bg); color:var(--text); font-weight:450;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+    user-select:none; -webkit-user-select:none;
+  }
+  #app{display:flex; flex-direction:column; height:100dvh;}
+  /* The ONLY scroll container — gets safe-area top padding so content clears the notch. */
+  #scroll{
+    flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+    padding:calc(var(--safe-t) + 14px) calc(var(--safe-r) + 16px)
+            120px calc(var(--safe-l) + 16px);            /* bottom pad clears the nav */
+  }
+  h1,h2,h3{margin:0; font-weight:750; letter-spacing:-.02em;}
+  h1{font-size:25px;} h2{font-size:18px;} h3{font-size:15px;}
+  p{margin:0;}
+  .muted{color:var(--muted);} .faint{color:var(--faint);} .sm{font-size:13px;}
+  .accent{color:var(--accent2);} .warn{color:var(--warn);} .danger{color:var(--danger);}
+  .center{text-align:center;}
+
+  .card{background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--r); padding:16px; margin-bottom:14px;}
+  .card.tight{padding:13px;}
+  .row{display:flex; align-items:center; gap:12px;}
+  .between{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+  .wrap{flex-wrap:wrap;}
+  .grow{flex:1; min-width:0;}
+
+  /* Buttons */
+  button{font-family:inherit; cursor:pointer; border:none; color:inherit;
+    font-size:15px; font-weight:600;}
+  .btn{min-height:var(--tap); padding:0 18px; border-radius:14px;
+    background:var(--surface2); border:1px solid var(--line); color:var(--text);
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;}
+  .btn:active{transform:scale(.97);}
+  .btn.primary{background:linear-gradient(180deg,var(--accent2),var(--accent-d));
+    border:none; color:#04221a; font-weight:750;}
+  .btn.ghost{background:transparent;}
+  .btn.full{width:100%;}
+  .btn.sm{min-height:42px; padding:0 14px; font-size:14px;}
+  .pill{height:34px; padding:0 12px; border-radius:999px; font-size:13px;
+    background:var(--surface2); border:1px solid var(--line); display:inline-flex;
+    align-items:center; gap:6px; color:var(--muted);}
+
+  /* Big toggle row for the daily checklist */
+  .check{width:100%; display:flex; align-items:center; gap:14px; min-height:var(--tap);
+    padding:13px 14px; border-radius:14px; background:var(--surface2);
+    border:1px solid var(--line); text-align:left; margin-bottom:10px; transition:.15s;}
+  .check .box{width:30px; height:30px; flex:none; border-radius:9px;
+    border:2px solid var(--faint); display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:transparent;}
+  .check.on{background:rgba(16,185,129,.13); border-color:var(--accent);}
+  .check.on .box{background:var(--accent); border-color:var(--accent); color:#04221a;}
+  .check .t{font-weight:650; font-size:15px;}
+  .check .s{font-size:12.5px; color:var(--muted);}
+  .check.opt{opacity:.92;}
+
+  /* Progress bars */
+  .bar{height:10px; border-radius:999px; background:#0c1730; overflow:hidden; border:1px solid var(--line);}
+  .bar>i{display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .35s;}
+  .counter{display:flex; gap:8px; margin-top:10px;}
+  .counter button{flex:1; min-height:46px; border-radius:12px; background:var(--surface2);
+    border:1px solid var(--line); font-weight:700;}
+  .counter input{width:64px; min-height:46px; text-align:center; border-radius:12px;
+    background:#0c1730; border:1px solid var(--line); color:var(--text); font-size:15px;}
+
+  /* Bottom nav — thumb-reachable, clears the home indicator */
+  #nav{display:flex; background:#0c1730ee; backdrop-filter:blur(12px);
+    border-top:1px solid var(--line);
+    padding:8px calc(var(--safe-r) + 6px) calc(var(--safe-b) + 8px) calc(var(--safe-l) + 6px);}
+  #nav button{flex:1; min-height:var(--tap); background:none; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:3px; color:var(--faint); font-size:11px; font-weight:700;}
+  #nav button .ic{font-size:21px; line-height:1;}
+  #nav button.on{color:var(--accent2);}
+
+  /* Weekly grid */
+  .week{display:grid; grid-template-columns:1fr; gap:8px;}
+  .day{display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:12px 14px; border-radius:13px;
+    background:var(--surface2); border:1px solid var(--line);}
+  .day .dname{flex:1 1 auto; min-width:max-content;}   /* won't shrink below its text → tags wrap below when crowded */
+  .day .tags{display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; flex-shrink:0; margin-left:auto;}
+  .day.today{border-color:var(--accent); background:rgba(16,185,129,.10);}
+  .day .dn{width:42px; font-weight:750; font-size:13px; color:var(--muted);}
+  .tag{font-size:11px; font-weight:750; padding:3px 9px; border-radius:999px;}
+  .tag.forta{background:rgba(52,211,153,.16); color:var(--accent2);}
+  .tag.sport{background:rgba(96,165,250,.16); color:#7cb1ff;}
+  .tag.odihna{background:rgba(148,163,184,.14); color:#aab8d4;}
+  .tag.treat{background:rgba(252,211,77,.16); color:var(--gold);}
+  .tag.weigh{background:rgba(248,113,113,.15); color:#ffb4b4;}
+
+  /* Health table */
+  table{width:100%; border-collapse:collapse; font-size:14px;}
+  td{padding:8px 4px; border-bottom:1px solid var(--line);}
+  td:last-child{text-align:right; font-variant-numeric:tabular-nums;}
+  .dir{font-size:12px; margin-left:6px;}
+
+  /* Collapsible cheat-sheets */
+  details{background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+    margin-bottom:12px; overflow:hidden;}
+  summary{list-style:none; cursor:pointer; padding:15px 16px; font-weight:700; font-size:15px;
+    display:flex; align-items:center; justify-content:space-between; min-height:var(--tap);}
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:"＋"; color:var(--muted); font-weight:700;}
+  details[open] summary::after{content:"－";}
+  details .body{padding:0 16px 16px; font-size:14px; color:var(--muted);}
+  details .body b{color:var(--text);}
+  .swap{padding:9px 0; border-top:1px solid var(--line);}
+  .swap .x{color:#ffb4b4;} .swap .y{color:var(--accent2);}
+
+  /* Overlay (onboarding / modals / pin / lock) */
+  #overlay{position:fixed; inset:0; z-index:50; display:none; background:#070d18ee;
+    backdrop-filter:blur(6px); align-items:center; justify-content:center;
+    padding:calc(var(--safe-t) + 18px) 18px calc(var(--safe-b) + 18px);}
+  #overlay.show{display:flex;}
+  .sheet{width:100%; max-width:460px; max-height:100%; overflow-y:auto;
+    background:var(--surface); border:1px solid var(--line); border-radius:24px; padding:22px;}
+  .modal-emoji{font-size:46px; text-align:center;}
+  textarea,input.text{width:100%; background:#0c1730; border:1px solid var(--line);
+    color:var(--text); border-radius:13px; padding:12px; font-size:15px; font-family:inherit;}
+  textarea{min-height:84px; resize:vertical;}
+  label.fld{display:block; font-size:13px; color:var(--muted); margin:12px 0 6px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+
+  /* Update banner */
+  #update{position:fixed; left:12px; right:12px; bottom:calc(var(--safe-b) + 84px); z-index:60;
+    display:none; background:var(--accent); color:#04221a; border-radius:14px;
+    padding:13px 16px; font-weight:750; align-items:center; justify-content:space-between; gap:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.4);}
+  #update.show{display:flex;}
+
+  .ringwrap{display:flex; align-items:center; gap:16px;}
+  .seg{display:flex; gap:8px;} .seg .pill{flex:1; justify-content:center;}
+  .kpi{font-size:30px; font-weight:800; letter-spacing:-.03em; font-variant-numeric:tabular-nums;}
+  .hidden{display:none !important;}
+  a{color:var(--accent2);}
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="scroll"><div id="screen"></div></main>
+  <nav id="nav">
+    <button data-nav="azi"      class="on"><span class="ic">☀️</span>AZI</button>
+    <button data-nav="saptamana"><span class="ic">🗓️</span>SĂPTĂMÂNĂ</button>
+    <button data-nav="progres"><span class="ic">📈</span>PROGRES</button>
+    <button data-nav="jurnal"><span class="ic">📓</span>JURNAL</button>
+  </nav>
+</div>
+<div id="overlay"></div>
+<div id="update">
+  <span>O actualizare e gata.</span>
+  <button class="btn sm" style="background:#04221a;color:#d6ffe9" data-action="apply-update">Reîmprospătează</button>
+</div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════════════
+   −10 · drumul meu  —  app personală de slăbit (un singur utilizator).
+   Fără backend, fără cont, fără build. Toate datele în localStorage.
+   Ton: blând, fără rușine. Medicamentul (sertralină) crește pofta — asta
+   NU e o slăbiciune de voință, iar aplicația vorbește mereu așa.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════ 1. STRINGS — tot textul, într-un loc ═══════════════════
+   Editează AICI orice formulare. Totul e în română, „tu", informal. */
+const S = {
+  appTitle:"−10 · drumul meu",
+  nav:{azi:"AZI", saptamana:"SĂPTĂMÂNĂ", progres:"PROGRES", jurnal:"JURNAL"},
+
+  // Linii motivaționale rotative (AZI, sus). {lost}/{rem} se înlocuiesc.
+  // Identitate + „de ce"-ul (fetița). Nimic restrictiv, nimic punitiv.
+  motiv:[
+    "Ești genul de tată care apare. {lost} kg jos — mai ai {rem} până la 70. 💚",
+    "Fetița ta nu vrea un tată perfect, vrea un tată prezent. Azi miști puțin corpul, atât.",
+    "{lost} kg mai ușor decât la start. Corpul tău ține minte fiecare zi bună.",
+    "Energia pe care o aduni azi e energia cu care te joci cu ea mâine.",
+    "Pofta poate veni din medicament, nu din tine. Proteina de azi e aliatul tău.",
+    "Mai ai {rem} kg până la 70. Nu grăbit — constant. Tu ești omul care rămâne.",
+    "Un pas, un pahar de apă, o masă cu proteine. Atât cere ziua de azi de la tine.",
+  ],
+  motivStart:"Începem de unde ești azi — fără rușine, doar înainte. Fetița ta te vrea sănătos și prezent mulți ani.",
+
+  todayPct:"complet azi",
+  // Checklist
+  fastTitle:"Postul 16:8",
+  fastBefore:"Fereastra de mâncare se deschide la {start}. Până atunci: apă, cafea, răbdare. Mai sunt {h}.",
+  fastIn:"Ești în fereastra de mâncare ({start}–{end}). Se închide în {h}. Pune proteina prima.",
+  fastAfter:"Post de seară. Te odihnești, corpul lucrează. Fereastra revine mâine la {start}.",
+  fastOkLabel:"Postul respectat azi",
+  fastShorten:"Scurtează postul azi",
+  fastShortened:"Ai scurtat postul azi — zero penalizare. Zi grea, alegere bună. 🤍",
+
+  proteinTitle:"Proteine",
+  proteinSub:"Antidotul foamei date de medicament. Țintă {goal} g.",
+  waterTitle:"Apă",
+  waterSub:"Țintă {goal} L.",
+  stepsTitle:"Pași",
+  stepsSub:"Țintă azi {goal}. Crește spre 12.000 pe parcurs.",
+  workoutForta:"Forță acasă (dimineața, pe nemâncate)",
+  workoutFortaSub:"~25–30 min, cu propriul corp. Progresezi prin repetări, nu greutăți.",
+  workoutSport:"Sport de plăcere",
+  workoutSportSub:"O sesiune faină + joacă activă cu fetița.",
+  workoutRest:"Zi de odihnă",
+  workoutRestSub:"Odihna face parte din plan. Mișcare ușoară dacă ai chef, fără obligație.",
+  alcoholLabel:"Fără alcool azi",
+  sleepLabel:"Am dormit 7h+",
+  suppLabel:"Suplimente luate",
+  suppSub:"Opțional — niciodată penalizat dacă le sari.",
+  add:"Adaugă", custom:"Custom",
+
+  hardBtn:"Moment greu",
+  hardTitle:"Respiră. Ești în regulă.",
+  hardBody:"Pofta asta e un val — vine și pleacă în câteva minute. Nu e foame reală, de multe ori e medicamentul sau anxietatea. Nu trebuie să o „învingi”, doar să o lași să treacă.\n\nInspiră 4 secunde · ține 4 · expiră 6. De trei ori.\n\nDacă chiar vrei să mănânci ceva: alege proteină — te satură real și îți ține mintea limpede.",
+  hardSnacks:"Iaurt grecesc · brânză de vaci · 2 ouă fierte · o mână de ton · un shake de proteine",
+  hardClose:"Mi-a trecut valul ✓",
+
+  smokeTitle:"Țigări azi",
+  smokeSub:"Doar dacă vrei să le numeri. „Când ești pregătit” — fără presiune, fără reproș.",
+
+  // Săptămână
+  weekTitle:"Săptămâna ta",
+  weekSub:"Forța dimineața (Lu/Mi/Vi), sport sâmbăta, restul odihnă activă.",
+  days:["Duminică","Luni","Marți","Miercuri","Joi","Vineri","Sâmbătă"],
+  daysShort:["Du","Lu","Ma","Mi","Jo","Vi","Sâ"],
+  treatTag:"masă răsfăț", weighTag:"cântar AM",
+
+  // Progres
+  progTitle:"Progresul tău",
+  current:"Acum", goal:"Țintă", lost:"Slăbit", toGo:"Mai ai",
+  pctToGoal:"din drum spre 70 kg",
+  projected:"Ritm recent → atingi 70 kg pe la",
+  projNone:"Încă strâng date despre ritm. Mai cântărește-te de câteva ori și apare estimarea.",
+  streak:"Serie curentă", streakDays:"zile", streakPaused:"În pauză — seria te așteaptă, nu a dispărut. 🤍", bestStreak:"cel mai bun",
+  waistBelly:"Talie & burtă", waist:"Talie", belly:"Burtă",
+  healthTitle:"Sănătate (analize)",
+  healthSub:"Tabela ta de scor. Planul mută cifrele: mai puțin prăjit, mai mulți pași, forță, mai puțin alcool, în timp mai puține țigări.",
+  hdlLow:"HDL mic — ținta e să-l urci. Mișcarea și omega-3 ajută cel mai mult.",
+  retest:"Au trecut ~{m} luni de la ultimele analize. Poate e timpul de o reverificare.",
+  relogBlood:"Reloghează analizele",
+  healthEmpty:"Adaugă valorile de la ultimele tale analize de sânge ca să-ți vezi tabela de scor și cum se mișcă în timp (HDL, LDL, trigliceride etc.).",
+  healthAdd:"Adaugă primele analize",
+
+  // Jurnal
+  jTitle:"Jurnal",
+  jWeight:"Cântărire", jWeightSub:"Sâmbătă dimineața, pe nemâncate, după baie. Dar orice zi e bună.",
+  jWaist:"Talie & burtă (cm)", kg:"kg", cm:"cm", save:"Salvează",
+  jPlan:"Planul tău", jWhy:"„De ce”-ul tău", jWindow:"Fereastra de mâncare",
+  jTraining:"Zile de forță", jStepGoal:"Țintă pași azi",
+  jData:"Datele tale", export:"Exportă (fișier .json)", import:"Importă",
+  backup:"Ultima copie de siguranță: {d}", backupNever:"niciodată — exportă o copie",
+  backupNudge:"Exportă din când în când o copie pe telefon/email, ca să nu pierzi istoricul.",
+  pinOn:"Blochează cu PIN", pinOff:"Scoate PIN-ul", showSmoke:"Arată contorul de țigări",
+  edit:"Editează",
+
+  // Onboarding
+  obWelcome:"Bun venit 👋",
+  obIntro:"E aplicația ta, doar a ta. Blândă, fără rușine, fără reproșuri. Completează câteva cifre o singură dată — rămân doar pe telefonul tău, nu pleacă nicăieri. Apoi mergem în ritmul tău.",
+  obName:"Prenume", obHeight:"Înălțime (cm)", obAge:"Vârstă (ani)",
+  obStartW:"Greutate acum (kg)", obGoalW:"Țintă (kg)",
+  obWaist:"Talie (cm)", obBelly:"Burtă (cm)",
+  obWhyLabel:"„De ce”-ul tău (poți schimba oricând)",
+  obWhyDefault:"Vreau să fiu un tată în formă și plin de energie, prezent și activ pentru fetița mea — mulți, mulți ani de acum încolo.",
+  obStart:"Hai să începem",
+  disclaimer:"Asta nu e sfat medical. Vorbește cu medicul de familie înainte de un deficit caloric sau suplimente. Și NICIODATĂ nu schimba medicația psihiatrică fără psihiatrul tău.",
+
+  milestoneTitle:"Felicitări! 🎉", milestoneBody:"Ai atins {w} kg. {lost} kg jos de la start. Fetița ta are un tată tot mai energic.",
+  milestoneClose:"Continuă 💚",
+
+  cheats:"Foi de parcurs",
+  swapTitle:"Ce mănânc în loc de ce", swapIntro:"Pune proteina prima, la masa de la 12:00. Nu „nu ai voie” — doar variante mai bune.",
+  workoutSheet:"Antrenamentul de forță (3×/săpt)",
+  suppSheet:"Suplimente (recomandat, nu obligatoriu)",
+  coffeeSheet:"Cafea & somn",
+  coffeeBody:"Ultimul espresso pe la 14:00. Cofeina târziu îți strică somnul și poate hrăni anxietatea. 3 espresso/zi e ok — doar mută-le devreme.",
+  suppGP:"Toate sunt opționale. Verifică-le cu medicul tău, mai ales magneziul și omega-3.",
+  backpackNote:"Opțional, mai târziu: un rucsac încărcat + 1 bandă elastică deblochează progresii noi. Util, dar deloc obligatoriu.",
+};
+
+/* ═══════════════════ 2. CONFIG — cifrele tale, comentate ═══════════════════
+   Schimbă AICI orice țintă. Caloriile se recalculează singure la fiecare
+   cântărire (vezi computeTargets), ca să nu te blochezi în luna 3. */
+const CONFIG = {
+  // ── Valori-șablon (NEPERSONALE). Doar pre-completează formularul de la prima
+  //    pornire; tu pui cifrele tale reale în onboarding, iar ele rămân DOAR pe
+  //    telefonul tău (localStorage), niciodată în acest cod public. ──
+  name:"",                 // prenume (îl pui la prima pornire)
+  age:35,                  // vârstă șablon (o pui la prima pornire)
+  heightCm:175,            // înălțime șablon
+  startWeightKg:85,        // greutate de start șablon
+  goalWeightKg:75,         // țintă șablon
+  startWaistCm:90,         // talie șablon
+  startBellyCm:100,        // burtă șablon
+
+  proteinGoalG:150,        // proteine/zi — sațietate + păstrezi mușchiul
+  waterGoalMl:2500,        // apă/zi = 2,5 L
+  stepGoalStart:8000,      // pași/zi la început
+  stepGoalEnd:12000,       // pași/zi spre final (crește pe măsură ce slăbești)
+
+  activityFactor:1.45,     // birou + 6–8k pași = sedentar-ușor
+  deficit:600,             // deficit zilnic față de mentenanță (~0,5–0,6 kg/săpt)
+  dailyTargetFloor:1600,   // sub atât NU coborâm caloriile, oricât ai slăbi
+
+  // Fereastra de mâncare 16:8 (poți schimba în Jurnal)
+  eatStart:"12:00", eatEnd:"20:00",
+  eatStartShort:"10:00",   // „Scurtează postul azi" deschide mai devreme
+
+  trainingDays:[1,3,5],    // forță: Luni, Miercuri, Vineri (1=Lu … 6=Sâ, 0=Du)
+  sportDay:6,              // Sâmbătă: sport de plăcere
+  weighDay:6,              // Sâmbătă AM: cântar
+  treatDay:6,              // Sâmbătă: masă răsfăț (max 1×/săpt)
+
+  bloodRetestDays:105,     // ~3,5 luni → nudge de reverificare analize
+};
+
+/* ═══════════════════ 3. STORAGE — localStorage, cu migrare ═══════════════════
+   Un singur obiect JSON. schemaVersion + loader defensiv = update-urile
+   viitoare NU îți șterg niciodată istoricul. Plus o oglindă (backup) într-o
+   a doua cheie, ca plasă de siguranță. */
+const KEY = "minus10.state";
+const MIRROR = "minus10.state.backup";
+const SCHEMA = 1;
+
+function defaultState(){
+  return {
+    schemaVersion:SCHEMA,
+    profile:{
+      onboarded:false, name:CONFIG.name, age:CONFIG.age, heightCm:CONFIG.heightCm,
+      goalWeightKg:CONFIG.goalWeightKg, startWeightKg:CONFIG.startWeightKg,
+      why:S.obWhyDefault,
+    },
+    settings:{
+      eatStart:CONFIG.eatStart, eatEnd:CONFIG.eatEnd,
+      trainingDays:CONFIG.trainingDays.slice(),
+      showSmoking:false, pin:null,
+      lastBackup:null,
+    },
+    dailyLogs:{},          // { "2026-06-30": {…} }
+    weightHistory:[{date:todayKey(), kg:CONFIG.startWeightKg}],
+    waistHistory:[{date:todayKey(), waist:CONFIG.startWaistCm, belly:CONFIG.startBellyCm}],
+    // Gol la început — îți adaugi propriile analize în PROGRES → „Adaugă primele
+    // analize" (rămân doar pe telefon). Aplicația marchează HDL mic automat.
+    bloodHistory:[],
+    celebrated:[],          // praguri de kg deja sărbătorite
+  };
+}
+
+// Loader defensiv: niciodată nu aruncă, migrează vechi → nou, umple lipsuri.
+function loadState(){
+  let raw = localStorage.getItem(KEY) || localStorage.getItem(MIRROR);
+  if(!raw) return defaultState();
+  let data;
+  try{ data = JSON.parse(raw); }catch(e){ console.warn("state corupt, oglindă", e);
+    try{ data = JSON.parse(localStorage.getItem(MIRROR)); }catch(_){ return defaultState(); } }
+  if(!data || typeof data!=="object") return defaultState();
+  return migrate(data);
+}
+function migrate(data){
+  const base = defaultState();
+  // Merge defensiv pe nivel: păstrăm tot ce există, adăugăm câmpuri noi.
+  const out = {
+    ...base, ...data,
+    profile:{...base.profile, ...(data.profile||{})},
+    settings:{...base.settings, ...(data.settings||{})},
+    dailyLogs:data.dailyLogs||{},
+    weightHistory:Array.isArray(data.weightHistory)&&data.weightHistory.length?data.weightHistory:base.weightHistory,
+    waistHistory:Array.isArray(data.waistHistory)&&data.waistHistory.length?data.waistHistory:base.waistHistory,
+    bloodHistory:Array.isArray(data.bloodHistory)&&data.bloodHistory.length?data.bloodHistory:base.bloodHistory,
+    celebrated:Array.isArray(data.celebrated)?data.celebrated:[],
+  };
+  // Aici intră migrările viitoare, ex: if(out.schemaVersion < 2){ ... }
+  out.schemaVersion = SCHEMA;
+  return out;
+}
+let state = loadState();
+
+function save(){
+  try{
+    const json = JSON.stringify(state);
+    localStorage.setItem(KEY, json);
+    localStorage.setItem(MIRROR, json);   // oglinda
+  }catch(e){ console.error("Nu pot salva", e); }
+}
+
+/* ═══════════════════ 4. HELPERS de dată ═══════════════════ */
+function dateKey(d){ // YYYY-MM-DD în ora LOCALĂ (nu UTC, ca să nu sară ziua)
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function todayKey(){ return dateKey(new Date()); }
+function parseKey(k){ const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); }
+function daysBetween(a,b){ return Math.round((parseKey(b)-parseKey(a))/86400000); }
+function ageYears(){ const a=Number(state?.profile?.age); return a>0?a:CONFIG.age; }
+function fmtDate(k){ const d=parseKey(k);
+  return d.getDate()+" "+["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","nov","dec"][d.getMonth()]+" "+d.getFullYear(); }
+function minutesOf(hhmm){ const [h,m]=hhmm.split(":").map(Number); return h*60+m; }
+function fmtDur(mins){ const h=Math.floor(mins/60), m=mins%60; return h>0?(h+"h "+(m>0?m+"m":"")).trim():m+"m"; }
+
+/* ═══════════════════ 5. COMPUTE — ținte adaptive & progres ═══════════════════ */
+// Mifflin–St Jeor (bărbat). Recalculat din greutatea CURENTĂ la fiecare cântărire.
+//   BMR = 10*kg + 6.25*înălțime − 5*vârstă + 5
+//   mentenanță = round(BMR * 1.45)        (sedentar-ușor)
+//   țintă      = max(1600, mentenanță − 600)   ← previne blocajul din luna 3
+function computeTargets(weightKg){
+  const bmr = 10*weightKg + 6.25*state.profile.heightCm - 5*ageYears() + 5;
+  const maintenance = Math.round(bmr * CONFIG.activityFactor);
+  const dailyTarget = Math.max(CONFIG.dailyTargetFloor, maintenance - CONFIG.deficit);
+  return {bmr:Math.round(bmr), maintenance, dailyTarget};
+}
+function currentWeight(){ const h=state.weightHistory; return h.length?h[h.length-1].kg:state.profile.startWeightKg; }
+function lostKg(){ return state.profile.startWeightKg - currentWeight(); }
+function toGoKg(){ return currentWeight() - state.profile.goalWeightKg; }
+function pctToGoal(){ // 0..100, cât din cele 10 kg ai parcurs
+  const total = state.profile.startWeightKg - state.profile.goalWeightKg;
+  return total<=0?0:Math.max(0,Math.min(100, (lostKg()/total)*100));
+}
+// Ținta de pași crește 8k→12k pe măsură ce slăbești (în trepte de 250).
+function stepGoalToday(){
+  const frac = Math.max(0, Math.min(1, lostKg() / (state.profile.startWeightKg-state.profile.goalWeightKg||1)));
+  const raw = CONFIG.stepGoalStart + (CONFIG.stepGoalEnd-CONFIG.stepGoalStart)*frac;
+  return Math.round(raw/250)*250;
+}
+// Estimare dată de final din ritmul recent (regresie liniară pe ~28 zile).
+function projection(){
+  const h = state.weightHistory;
+  if(h.length<2) return null;
+  const today = todayKey();
+  const recent = h.filter(e=>daysBetween(e.date,today)<=28);
+  const pts = (recent.length>=2?recent:h.slice(-4)).map(e=>({x:daysBetween(h[0].date,e.date), y:e.kg}));
+  const n=pts.length; if(n<2) return null;
+  const sx=pts.reduce((s,p)=>s+p.x,0), sy=pts.reduce((s,p)=>s+p.y,0);
+  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0), sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
+  const slope=(n*sxy-sx*sy)/(n*sxx-sx*sx || 1);   // kg/zi
+  if(!isFinite(slope) || slope>=-0.005) return null; // nu scade clar → fără estimare
+  const daysLeft = (currentWeight()-state.profile.goalWeightKg)/(-slope);
+  if(daysLeft<=0 || daysLeft>1000) return null;
+  const d=new Date(); d.setDate(d.getDate()+Math.round(daysLeft));
+  return dateKey(d);
+}
+
+/* ── Log-ul unei zile + scorul „cât de completă a fost" ── */
+function blankLog(){
+  return {fastOk:false, fastShortened:false, proteinG:0, waterMl:0, steps:0,
+    workoutDone:false, noAlcohol:false, slept:false, supplements:false,
+    cigarettes:0, hardUses:0};
+}
+function getLog(k){ if(!state.dailyLogs[k]) state.dailyLogs[k]=blankLog(); else
+  state.dailyLogs[k]={...blankLog(), ...state.dailyLogs[k]}; return state.dailyLogs[k]; }
+function planFor(dateKeyStr){
+  const dow = parseKey(dateKeyStr).getDay();
+  let type="odihna";
+  if(state.settings.trainingDays.includes(dow)) type="forta";
+  else if(dow===CONFIG.sportDay) type="sport";
+  return {type, weigh:dow===CONFIG.weighDay, treat:dow===CONFIG.treatDay};
+}
+// Scorul zilei = obligatorii completate / total obligatorii (supliment & țigări NU contează).
+function dayScore(k){
+  const l=getLog(k), p=planFor(k);
+  let done=0, total=0;
+  const add=(ok)=>{ total++; if(ok) done++; };
+  add(l.fastOk);
+  add(l.proteinG>=CONFIG.proteinGoalG);
+  add(l.waterMl>=CONFIG.waterGoalMl);
+  add(l.steps>=stepGoalToday());
+  add(p.type==="odihna" ? true : l.workoutDone);  // ziua de odihnă = bifată din start
+  add(l.noAlcohol);
+  add(l.slept);
+  return total? done/total : 0;
+}
+function weightLoggedOn(k){ return state.weightHistory.some(e=>e.date===k); }
+function activeDay(k){ return dayScore(k)>=0.5 || weightLoggedOn(k); }
+// Serie: NU scade peste zi (dacă azi încă nu e activă, numărăm de ieri).
+// Un gol o PUNE ÎN PAUZĂ, nu o aduce la zero, niciodată.
+function computeStreak(){
+  const today=todayKey();
+  let cur=new Date(), paused=false;
+  if(!activeDay(today)){ cur.setDate(cur.getDate()-1); paused=true; }
+  let n=0;
+  for(let i=0;i<500;i++){ const k=dateKey(cur);
+    if(activeDay(k)){ n++; cur.setDate(cur.getDate()-1); } else break; }
+  return {count:n, paused:paused && n>0};
+}
+function bestStreak(){
+  const keys=Object.keys(state.dailyLogs).concat(state.weightHistory.map(e=>e.date));
+  const set=new Set(keys.filter(activeDay));
+  if(set.size===0) return 0;
+  let best=0;
+  for(const k of set){
+    // numără doar începuturile de serie
+    const prev=new Date(parseKey(k)); prev.setDate(prev.getDate()-1);
+    if(set.has(dateKey(prev))) continue;
+    let n=0, cur=new Date(parseKey(k));
+    while(set.has(dateKey(cur))){ n++; cur.setDate(cur.getDate()+1); }
+    best=Math.max(best,n);
+  }
+  return best;
+}
+
+/* ═══════════════════ 6. ACȚIUNI (mutate → save → render) ═══════════════════ */
+function setLog(k, patch){ state.dailyLogs[k]={...getLog(k), ...patch}; save(); render(); }
+function addProtein(g){ const k=todayKey(); setLog(k,{proteinG:Math.max(0,getLog(k).proteinG+g)}); }
+function addWater(ml){ const k=todayKey(); setLog(k,{waterMl:Math.max(0,getLog(k).waterMl+ml)}); }
+function addSteps(n){ const k=todayKey(); setLog(k,{steps:Math.max(0,getLog(k).steps+n)}); }
+function toggle(field){ const k=todayKey(); setLog(k,{[field]:!getLog(k)[field]}); }
+
+function logWeight(kg){
+  if(!(kg>0)) return;
+  const k=todayKey();
+  state.weightHistory=state.weightHistory.filter(e=>e.date!==k);
+  state.weightHistory.push({date:k, kg:Math.round(kg*10)/10});
+  state.weightHistory.sort((a,b)=>a.date<b.date?-1:1);
+  save(); checkMilestone(); render();
+}
+function logWaist(waist, belly){
+  const k=todayKey();
+  state.waistHistory=state.waistHistory.filter(e=>e.date!==k);
+  const last=state.waistHistory[state.waistHistory.length-1]||{};
+  state.waistHistory.push({date:k, waist:waist||last.waist, belly:belly||last.belly});
+  state.waistHistory.sort((a,b)=>a.date<b.date?-1:1); save(); render();
+}
+// Praguri la fiecare 2 kg: 78,76,74,72,70. Modal de sărbătoare o singură dată.
+function checkMilestone(){
+  const w=currentWeight();
+  for(let m=state.profile.startWeightKg-2; m>=state.profile.goalWeightKg; m-=2){
+    if(w<=m && !state.celebrated.includes(m)){
+      state.celebrated.push(m); save();
+      showMilestone(m); break;
+    }
+  }
+}
+
+/* ═══════════════════ 7. RENDER ═══════════════════ */
+const app = {screen:"azi", unlocked:false};
+const $screen = document.getElementById("screen");
+const $overlay = document.getElementById("overlay");
+
+function bar(value, goal){ const pct=Math.max(0,Math.min(100,(value/goal)*100));
+  return `<div class="bar"><i style="width:${pct}%"></i></div>`; }
+
+function render(){
+  // Poartă: PIN apoi onboarding
+  if(state.settings.pin && !app.unlocked){ return renderLock(); }
+  if(!state.profile.onboarded){ return renderOnboarding(); }
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on", b.dataset.nav===app.screen));
+  if(app.screen==="azi") renderAzi();
+  else if(app.screen==="saptamana") renderSaptamana();
+  else if(app.screen==="progres") renderProgres();
+  else if(app.screen==="jurnal") renderJurnal();
+  document.getElementById("scroll").scrollTop = app._scroll||0;
+}
+
+/* ── AZI ── */
+function fastingStatus(){
+  const k=todayKey(), l=getLog(k);
+  const startStr = l.fastShortened ? CONFIG.eatStartShort : state.settings.eatStart;
+  const start=minutesOf(startStr), end=minutesOf(state.settings.eatEnd);
+  const now=new Date().getHours()*60 + new Date().getMinutes();
+  if(now<start) return {txt:S.fastBefore.replace("{start}",startStr).replace("{h}",fmtDur(start-now)), startStr};
+  if(now<end)   return {txt:S.fastIn.replace("{start}",startStr).replace("{end}",state.settings.eatEnd).replace("{h}",fmtDur(end-now)), startStr};
+  return {txt:S.fastAfter.replace("{start}",state.settings.eatStart), startStr};
+}
+function motivLine(){
+  const lost=lostKg();
+  if(lost<=0) return S.motivStart;
+  const idx = parseInt(todayKey().replace(/-/g,""),10) % S.motiv.length;
+  return S.motiv[idx].replace("{lost}", (Math.round(lost*10)/10)).replace("{rem}", (Math.round(toGoKg()*10)/10));
+}
+function checkRow(on, title, sub, action, opt){
+  return `<button class="check ${on?"on":""} ${opt?"opt":""}" data-action="${action}">
+    <span class="box">✓</span>
+    <span class="grow"><span class="t">${title}</span><br><span class="s">${sub}</span></span>
+  </button>`;
+}
+function renderAzi(){
+  const k=todayKey(), l=getLog(k), p=planFor(k), t=computeTargets(currentWeight());
+  const pct=Math.round(dayScore(k)*100);
+  const fs=fastingStatus();
+  const sg=stepGoalToday();
+  const wk = p.type==="forta"?{t:S.workoutForta,s:S.workoutFortaSub}
+           : p.type==="sport"?{t:S.workoutSport,s:S.workoutSportSub}
+           : {t:S.workoutRest,s:S.workoutRestSub};
+
+  let html = `
+  <div class="card" style="background:linear-gradient(160deg,#13233f,#0f1b30)">
+    <p class="sm muted">${fmtDate(k)} · ${S.days[parseKey(k).getDay()]}</p>
+    <h1 style="margin:6px 0 2px">${motivLine()}</h1>
+  </div>
+
+  <div class="card between">
+    <div><div class="kpi">${pct}%</div><div class="sm muted">${S.todayPct}</div></div>
+    <div class="grow" style="max-width:60%">${bar(pct,100)}
+      <div class="sm muted" style="margin-top:8px">Țintă calorii azi: <b class="accent">${t.dailyTarget}</b> kcal · mentenanță ~${t.maintenance}</div></div>
+  </div>
+
+  <button class="btn full" style="background:linear-gradient(180deg,#ffb4b4,#f87171);color:#3a0a0a;font-weight:800;margin-bottom:14px" data-action="hard">🫶 ${S.hardBtn}</button>
+
+  <!-- Post -->
+  <div class="card tight">
+    <div class="between"><h3>${S.fastTitle}</h3>${l.fastShortened?`<span class="pill">postul scurtat</span>`:""}</div>
+    <p class="sm muted" style="margin:8px 0 12px">${fs.txt}</p>
+    ${checkRow(l.fastOk, S.fastOkLabel, "16:8 · "+state.settings.eatStart+"–"+state.settings.eatEnd, "t:fastOk")}
+    ${l.fastShortened
+      ? `<p class="sm accent">${S.fastShortened}</p>`
+      : `<button class="btn ghost sm full" data-action="shorten">🤍 ${S.fastShorten}</button>`}
+  </div>
+
+  <!-- Proteine -->
+  <div class="card tight">
+    <div class="between"><h3>${S.proteinTitle}</h3><b class="accent">${l.proteinG} / ${CONFIG.proteinGoalG} g</b></div>
+    <p class="s muted" style="margin:6px 0 8px">${S.proteinSub.replace("{goal}",CONFIG.proteinGoalG)}</p>
+    ${bar(l.proteinG,CONFIG.proteinGoalG)}
+    <div class="counter">
+      <button data-action="prot:-10">−10</button>
+      <button data-action="prot:10">+10 g</button>
+      <button data-action="prot:25">+25 g</button>
+      <input id="protCustom" type="number" inputmode="numeric" placeholder="g" />
+      <button data-action="prot:custom">${S.add}</button>
+    </div>
+  </div>
+
+  <!-- Apă -->
+  <div class="card tight">
+    <div class="between"><h3>${S.waterTitle}</h3><b class="accent">${(l.waterMl/1000).toFixed(2).replace(/\.?0+$/,"")} / ${(CONFIG.waterGoalMl/1000)} L</b></div>
+    ${bar(l.waterMl,CONFIG.waterGoalMl)}
+    <div class="counter">
+      <button data-action="water:-250">−250</button>
+      <button data-action="water:250">+250 ml</button>
+      <button data-action="water:500">+500 ml</button>
+    </div>
+  </div>
+
+  <!-- Pași -->
+  <div class="card tight">
+    <div class="between"><h3>${S.stepsTitle}</h3><b class="accent">${l.steps.toLocaleString("ro-RO")} / ${sg.toLocaleString("ro-RO")}</b></div>
+    <p class="s muted" style="margin:6px 0 8px">${S.stepsSub.replace("{goal}",sg.toLocaleString("ro-RO"))}</p>
+    ${bar(l.steps,sg)}
+    <div class="counter">
+      <button data-action="steps:1000">+1.000</button>
+      <button data-action="steps:2000">+2.000</button>
+      <input id="stepCustom" type="number" inputmode="numeric" placeholder="pași" />
+      <button data-action="steps:custom">${S.add}</button>
+    </div>
+  </div>
+
+  <!-- Mișcare / sport / odihnă -->
+  ${p.type==="odihna"
+    ? `<div class="card tight"><h3>${wk.t}</h3><p class="s muted" style="margin-top:6px">${wk.s}</p></div>`
+    : checkRow(l.workoutDone, wk.t, wk.s, "t:workoutDone")}
+
+  ${checkRow(l.noAlcohol, S.alcoholLabel, "", "t:noAlcohol")}
+  ${checkRow(l.slept, S.sleepLabel, "", "t:slept")}
+  ${checkRow(l.supplements, S.suppLabel, S.suppSub, "t:supplements", true)}
+  `;
+
+  // Contor opțional de țigări — ascuns până îl pornești din Jurnal.
+  if(state.settings.showSmoking){
+    html += `<div class="card tight">
+      <div class="between"><h3>${S.smokeTitle}</h3><b>${l.cigarettes}</b></div>
+      <p class="s muted" style="margin:6px 0 8px">${S.smokeSub}</p>
+      <div class="counter"><button data-action="cig:-1">−1</button><button data-action="cig:1">+1</button></div>
+    </div>`;
+  }
+
+  // Foi de parcurs (cheat-sheets)
+  html += cheatSheets();
+  $screen.innerHTML = html;
+}
+
+/* ── SĂPTĂMÂNĂ ── */
+function renderSaptamana(){
+  const todayDow = new Date().getDay();
+  let rows="";
+  // Luni→Duminică
+  const order=[1,2,3,4,5,6,0];
+  for(const dow of order){
+    let type="odihna";
+    if(state.settings.trainingDays.includes(dow)) type="forta";
+    else if(dow===CONFIG.sportDay) type="sport";
+    const label = type==="forta"?"Forță":type==="sport"?"Sport":"Odihnă";
+    const tags=[`<span class="tag ${type}">${label}</span>`];
+    if(dow===CONFIG.treatDay) tags.push(`<span class="tag treat">${S.treatTag}</span>`);
+    if(dow===CONFIG.weighDay) tags.push(`<span class="tag weigh">${S.weighTag}</span>`);
+    rows+=`<div class="day ${dow===todayDow?"today":""}">
+      <span class="dn">${S.daysShort[dow]}</span>
+      <span class="dname">${S.days[dow]}</span>
+      <span class="tags">${tags.join("")}</span>
+    </div>`;
+  }
+  $screen.innerHTML = `
+    <h1>${S.weekTitle}</h1>
+    <p class="muted sm" style="margin:8px 0 16px">${S.weekSub}</p>
+    <div class="week">${rows}</div>
+    ${cheatSheets()}`;
+}
+
+/* ── PROGRES ── */
+function weightChartSVG(){
+  const h=state.weightHistory; if(h.length===0) return "";
+  const W=320, H=170, padL=30, padR=10, padT=14, padB=22;
+  const goal=state.profile.goalWeightKg;
+  const ys=h.map(e=>e.kg).concat([goal]);
+  let min=Math.min(...ys), max=Math.max(...ys);
+  if(max-min<2){min-=1;max+=1;}
+  min=Math.floor(min)-0.5; max=Math.ceil(max)+0.5;
+  const x0=parseKey(h[0].date).getTime();
+  const x1=Math.max(parseKey(h[h.length-1].date).getTime(), x0+86400000);
+  const X=t=>padL+((t-x0)/(x1-x0))*(W-padL-padR);
+  const Y=v=>padT+(1-(v-min)/(max-min))*(H-padT-padB);
+  const pts=h.map(e=>[X(parseKey(e.date).getTime()), Y(e.kg)]);
+  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const area=`M${pts[0][0].toFixed(1)} ${(H-padB)} `+pts.map(p=>"L"+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ")+` L${pts[pts.length-1][0].toFixed(1)} ${(H-padB)} Z`;
+  const gy=Y(goal);
+  // marcaje de milestone la fiecare 2 kg
+  let marks="";
+  for(let m=state.profile.startWeightKg-2; m>=goal; m-=2){
+    if(m<min||m>max) continue;
+    const yy=Y(m);
+    marks+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#243456" stroke-dasharray="2 4"/>`;
+  }
+  const dots=pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="#34d399"/>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10b981" stop-opacity=".35"/><stop offset="1" stop-color="#10b981" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${marks}
+    <line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#fcd34d" stroke-width="1.3" stroke-dasharray="5 4"/>
+    <text x="${W-padR}" y="${gy-4}" fill="#fcd34d" font-size="9" text-anchor="end">țintă ${goal}</text>
+    <path d="${area}" fill="url(#g)"/>
+    <path d="${line}" fill="none" stroke="#34d399" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    <text x="2" y="${Y(max)+3}" fill="#5e7099" font-size="9">${max.toFixed(0)}</text>
+    <text x="2" y="${Y(min)+3}" fill="#5e7099" font-size="9">${min.toFixed(0)}</text>
+    <text x="${padL}" y="${H-6}" fill="#5e7099" font-size="9">${fmtDate(h[0].date)}</text>
+    <text x="${W-padR}" y="${H-6}" fill="#5e7099" font-size="9" text-anchor="end">${fmtDate(h[h.length-1].date)}</text>
+  </svg>`;
+}
+function miniTrend(history, field, unit){
+  const h=history.filter(e=>e[field]!=null); if(h.length===0) return "";
+  const first=h[0][field], last=h[h.length-1][field], diff=last-first;
+  const dir = diff<0?`<span class="accent">▼ ${Math.abs(diff)} ${unit}</span>`:diff>0?`<span class="warn">▲ ${diff} ${unit}</span>`:`<span class="muted">—</span>`;
+  return `<b>${last} ${unit}</b> &nbsp;<span class="sm">${dir}</span>`;
+}
+function renderProgres(){
+  const w=currentWeight(), proj=projection(), st=computeStreak();
+  const wa=state.waistHistory;
+  let html=`
+  <h1>${S.progTitle}</h1>
+  <div class="card" style="margin-top:14px">
+    <div class="between" style="align-items:flex-end">
+      <div><div class="sm muted">${S.current}</div><div class="kpi accent">${w} kg</div></div>
+      <div class="center"><div class="sm muted">${S.lost}</div><div class="kpi">${Math.max(0,Math.round(lostKg()*10)/10)}</div></div>
+      <div style="text-align:right"><div class="sm muted">${S.toGo}</div><div class="kpi">${Math.max(0,Math.round(toGoKg()*10)/10)} kg</div></div>
+    </div>
+    <div style="margin:14px 0 6px">${bar(pctToGoal(),100)}</div>
+    <div class="sm muted">${Math.round(pctToGoal())}% ${S.pctToGoal}</div>
+  </div>
+
+  <div class="card">${weightChartSVG()}</div>
+
+  <div class="seg" style="margin-bottom:14px">
+    <span class="pill" style="height:auto;padding:10px 12px;flex-direction:column;align-items:flex-start;gap:2px">
+      <span>🔥 ${S.streak}</span><b style="color:var(--text);font-size:20px">${st.count} ${S.streakDays}</b>
+      <span class="sm">${S.bestStreak}: ${bestStreak()}</span></span>
+    <span class="pill" style="height:auto;padding:10px 12px;flex-direction:column;align-items:flex-start;gap:2px">
+      <span>🎯 ${S.projected.split("→")[0].trim()}</span>
+      <b style="color:var(--text);font-size:15px">${proj?fmtDate(proj):"—"}</b></span>
+  </div>
+  ${st.paused?`<p class="sm warn" style="margin:-6px 0 14px">${S.streakPaused}</p>`:""}
+  ${!proj?`<p class="sm muted" style="margin:-6px 0 14px">${S.projNone}</p>`:""}
+
+  <div class="card">
+    <h3>${S.waistBelly}</h3>
+    <div class="between" style="margin-top:10px"><span class="muted">${S.waist}</span><span>${miniTrend(wa,"waist","cm")}</span></div>
+    <div class="between" style="margin-top:10px"><span class="muted">${S.belly}</span><span>${miniTrend(wa,"belly","cm")}</span></div>
+  </div>`;
+
+  // Sănătate (analize)
+  const b=state.bloodHistory;
+  if(b.length===0){
+    // Încă nu ai analize → invitație blândă, fără tabel.
+    html+=`<div class="card">
+      <h3>${S.healthTitle}</h3>
+      <p class="s muted" style="margin:8px 0 12px">${S.healthEmpty}</p>
+      <button class="btn primary sm full" data-action="relog-blood">${S.healthAdd}</button>
+    </div>`;
+    $screen.innerHTML=html; return;
+  }
+  const last=b[b.length-1], prev=b.length>1?b[b.length-2]:null;
+  const dir=(field,goodDown)=>{ if(!prev||prev[field]==null) return "";
+    const d=last[field]-prev[field]; if(d===0) return `<span class="dir muted">—</span>`;
+    const good = goodDown? d<0 : d>0;
+    return `<span class="dir ${good?"accent":"warn"}">${d<0?"▼":"▲"}${Math.abs(Math.round(d*100)/100)}</span>`; };
+  const row=(label,field,unit,goodDown,flag)=>`<tr><td>${label}${flag?` <span class="danger sm">${flag}</span>`:""}</td><td>${last[field]??"—"} ${unit}${dir(field,goodDown)}</td></tr>`;
+  const months=Math.round(daysBetween(last.date, todayKey())/30);
+  html+=`
+  <div class="card">
+    <div class="between"><h3>${S.healthTitle}</h3><span class="sm muted">${fmtDate(last.date)}</span></div>
+    <p class="s muted" style="margin:8px 0 6px">${S.healthSub}</p>
+    <table>
+      ${row("HDL","hdl","mg/dL",false,"mic")}
+      ${row("LDL","ldl","mg/dL",true)}
+      ${row("Non-HDL","nonHdl","mg/dL",true)}
+      ${row("Colesterol total","total","mg/dL",true)}
+      ${row("Trigliceride","trig","mg/dL",true)}
+      ${row("Glucoză","glucose","mg/dL",true)}
+      ${row("ALT","alt","U/L",true)}
+      ${row("AST","ast","U/L",true)}
+      ${row("Creatinină","creatinine","mg/dL",true)}
+      ${row("Magneziu","magnesium","mg/dL",false)}
+    </table>
+    <p class="sm warn" style="margin-top:10px">⚠️ ${S.hdlLow}</p>
+    ${months>=3?`<p class="sm muted" style="margin-top:8px">⏰ ${S.retest.replace("{m}",months)}</p>`:""}
+    <button class="btn sm full" style="margin-top:12px" data-action="relog-blood">${S.relogBlood}</button>
+  </div>`;
+  $screen.innerHTML=html;
+}
+
+/* ── JURNAL ── */
+function renderJurnal(){
+  const lastW=state.waistHistory[state.waistHistory.length-1]||{};
+  const tdays=state.settings.trainingDays;
+  const dayBtns=[1,2,3,4,5,6,0].map(d=>`<button class="pill ${tdays.includes(d)?"":""}" style="${tdays.includes(d)?"background:var(--accent);color:#04221a;border-color:var(--accent)":""}" data-action="td:${d}">${S.daysShort[d]}</button>`).join("");
+  const lb=state.settings.lastBackup;
+  $screen.innerHTML=`
+  <h1>${S.jTitle}</h1>
+
+  <div class="card" style="margin-top:14px">
+    <h3>${S.jWeight}</h3>
+    <p class="s muted" style="margin:6px 0 10px">${S.jWeightSub}</p>
+    <div class="row">
+      <input class="text" id="wInput" type="number" inputmode="decimal" step="0.1" placeholder="${currentWeight()}" style="flex:1" />
+      <span class="muted">${S.kg}</span>
+      <button class="btn primary" data-action="save-weight">${S.save}</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>${S.jWaist}</h3>
+    <div class="grid2" style="margin-top:10px">
+      <div><label class="fld">${S.waist}</label><input class="text" id="waistInput" type="number" inputmode="decimal" placeholder="${lastW.waist??""}"/></div>
+      <div><label class="fld">${S.belly}</label><input class="text" id="bellyInput" type="number" inputmode="decimal" placeholder="${lastW.belly??""}"/></div>
+    </div>
+    <button class="btn full" style="margin-top:12px" data-action="save-waist">${S.save}</button>
+  </div>
+
+  <div class="card">
+    <h3>${S.jPlan}</h3>
+    <label class="fld">${S.jWhy}</label>
+    <p class="sm" style="background:#0c1730;border:1px solid var(--line);border-radius:12px;padding:11px">${state.profile.why}</p>
+    <button class="btn ghost sm full" data-action="edit-why">✎ ${S.edit}</button>
+    <div class="grid2" style="margin-top:12px">
+      <div><label class="fld">${S.jWindow}</label>
+        <button class="btn sm full" data-action="edit-window">${state.settings.eatStart}–${state.settings.eatEnd}</button></div>
+    </div>
+    <label class="fld">${S.jTraining}</label>
+    <div class="row wrap" style="gap:7px">${dayBtns}</div>
+  </div>
+
+  <div class="card">
+    <h3>${S.jData}</h3>
+    <div class="row wrap" style="gap:8px;margin-top:10px">
+      <button class="btn sm grow" data-action="export">⬇︎ ${S.export}</button>
+      <button class="btn sm grow" data-action="import">⬆︎ ${S.import}</button>
+    </div>
+    <p class="sm ${lb?"muted":"warn"}" style="margin-top:10px">${lb?S.backup.replace("{d}",fmtDate(lb)):S.backupNever}</p>
+    <p class="sm faint">${S.backupNudge}</p>
+    <div class="row wrap" style="gap:8px;margin-top:12px">
+      <button class="btn sm grow" data-action="toggle-pin">🔒 ${state.settings.pin?S.pinOff:S.pinOn}</button>
+      <button class="btn sm grow" data-action="toggle-smoke">🚬 ${S.showSmoke} ${state.settings.showSmoking?"✓":""}</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="sm faint">${S.disclaimer}</p>
+  </div>`;
+}
+
+/* ═══════════════════ 8. CHEAT-SHEETS ═══════════════════ */
+function cheatSheets(){
+  const swaps=[
+    ["șnițel + cartofi prăjiți","carne la grătar/cuptor + cartofi copți sau orez + salată mare"],
+    ["pizza de seară","iaurt grecesc / brânză de vaci / ouă / ton / piept de pui"],
+    ["chiflă albă + mezel","ouă + legume, sau pâine integrală cu brânză slabă"],
+    ["chipsuri","castraveți + hummus, sau o mână de migdale"],
+    ["suc / energizant","apă cu lămâie, sau cafea (până la 14:00)"],
+    ["ciocolată cu lapte","2–3 pătrățele de ciocolată neagră 85%, savurate lent"],
+    ["bere a doua","apă minerală cu lămâie/lime — la fel de rece, fără calorii"],
+    ["iaurt cu fructe (zaharat)","iaurt grecesc simplu + fructe proaspete + scorțișoară"],
+    ["cereale dulci dimineața","omletă cu 3 ouă + legume (după ce se deschide fereastra)"],
+    ["paste mari seara","porție mai mică + multă proteină + salată; pune proteina prima"],
+  ];
+  const swapHtml=swaps.map(s=>`<div class="swap"><span class="x">✗ ${s[0]}</span><br><span class="y">✓ ${s[1]}</span></div>`).join("");
+
+  return `<h2 style="margin:22px 0 12px">${S.cheats}</h2>
+
+  <details><summary>🍽️ ${S.swapTitle}</summary><div class="body">
+    <p style="margin-bottom:6px">${S.swapIntro}</p>${swapHtml}
+  </div></details>
+
+  <details><summary>💪 ${S.workoutSheet}</summary><div class="body">
+    <p>3×/săptămână (Lu/Mi/Vi), dimineața, pe nemâncate, ~25–30 min. Progresezi prin <b>pârghie & repetări</b>, nu greutăți.</p>
+    <p style="margin-top:10px"><b>Genuflexiuni (squat)</b> — fără greutate → pauză jos 2s → pe un picior (asistat).</p>
+    <p style="margin-top:8px"><b>Șold/hinge</b> — hip thrust pe podea → pe un picior → pas mare (lunge).</p>
+    <p style="margin-top:8px"><b>Împins (push)</b> — flotări la perete → pe genunchi → pe vârfuri → mâinile apropiate.</p>
+    <p style="margin-top:8px"><b>Tras (pull)</b> — rânduri la masă (sub o masă solidă) → pe un braț; sau bandă elastică.</p>
+    <p style="margin-top:8px"><b>Core</b> — plank 20s → 40s → side plank → mountain climbers lente.</p>
+    <p style="margin-top:10px">3 ture: 8–12 repetări/exercițiu, 60s pauză. Când 12 devin ușoare, treci la varianta mai grea.</p>
+    <p style="margin-top:10px" class="faint">${S.backpackNote}</p>
+  </div></details>
+
+  <details><summary>💊 ${S.suppSheet}</summary><div class="body">
+    <p><b>Dimineața:</b> cafea/cofeină · vitamina D3 · creatină 5 g (în orice moment, dar e ok dimineața).</p>
+    <p style="margin-top:8px"><b>La masă:</b> whey (proteine) dacă nu prinzi 150 g din mâncare · omega-3.</p>
+    <p style="margin-top:8px"><b>Seara:</b> magneziu (somn & relaxare).</p>
+    <p style="margin-top:10px" class="faint">${S.suppGP}</p>
+  </div></details>
+
+  <details><summary>☕ ${S.coffeeSheet}</summary><div class="body"><p>${S.coffeeBody}</p></div></details>`;
+}
+
+/* ═══════════════════ 9. MODALE / ONBOARDING / PIN ═══════════════════ */
+function openOverlay(html){ $overlay.innerHTML=`<div class="sheet">${html}</div>`; $overlay.classList.add("show"); }
+function closeOverlay(){ $overlay.classList.remove("show"); $overlay.innerHTML=""; }
+
+function renderOnboarding(){
+  const p=state.profile, w=state.waistHistory[0]||{};
+  // Toate câmpurile sunt pre-completate cu valori-șablon neutre; le înlocuiești
+  // cu ale tale. Ce scrii aici rămâne DOAR pe telefon (localStorage).
+  const num=(id,val,ph)=>`<input class="text" id="${id}" type="number" inputmode="decimal" step="any" value="${val||""}" placeholder="${ph||""}"/>`;
+  $overlay.innerHTML=`<div class="sheet">
+    <div class="modal-emoji">💚</div>
+    <h1 class="center" style="margin:10px 0">${S.obWelcome}</h1>
+    <p class="muted" style="margin-bottom:14px">${S.obIntro}</p>
+    <label class="fld">${S.obName}</label>
+    <input class="text" id="obName" type="text" value="${p.name||""}" placeholder="—"/>
+    <div class="grid2">
+      <div><label class="fld">${S.obAge}</label>${num("obAge",p.age)}</div>
+      <div><label class="fld">${S.obHeight}</label>${num("obHeight",p.heightCm)}</div>
+      <div><label class="fld">${S.obStartW}</label>${num("obStartW",p.startWeightKg)}</div>
+      <div><label class="fld">${S.obGoalW}</label>${num("obGoalW",p.goalWeightKg)}</div>
+      <div><label class="fld">${S.obWaist}</label>${num("obWaist",w.waist)}</div>
+      <div><label class="fld">${S.obBelly}</label>${num("obBelly",w.belly)}</div>
+    </div>
+    <label class="fld">${S.obWhyLabel}</label>
+    <textarea id="obWhy">${p.why}</textarea>
+    <p class="sm faint" style="margin:14px 0">${S.disclaimer}</p>
+    <button class="btn primary full" data-action="finish-onboarding">${S.obStart}</button>
+  </div>`;
+  $overlay.classList.add("show");
+}
+function showMilestone(w){
+  openOverlay(`
+    <div class="modal-emoji">🎉</div>
+    <h1 class="center" style="margin:10px 0">${S.milestoneTitle}</h1>
+    <p class="center" style="margin-bottom:18px">${S.milestoneBody.replace("{w}",w).replace("{lost}",Math.round(lostKg()*10)/10)}</p>
+    <button class="btn primary full" data-action="close-modal">${S.milestoneClose}</button>`);
+}
+function showHard(){
+  const k=todayKey(); setLog(k,{hardUses:getLog(k).hardUses+1});
+  openOverlay(`
+    <div class="modal-emoji">🫂</div>
+    <h2 class="center" style="margin:10px 0">${S.hardTitle}</h2>
+    <p class="muted" style="white-space:pre-line;margin-bottom:14px">${S.hardBody}</p>
+    <div class="card tight" style="margin-bottom:14px"><div class="sm muted">Dacă mănânci, alege proteină:</div><p style="margin-top:6px">${S.hardSnacks}</p></div>
+    <button class="btn primary full" data-action="close-modal">${S.hardClose}</button>`);
+}
+function renderLock(){
+  $overlay.innerHTML=`<div class="sheet center">
+    <div class="modal-emoji">🔒</div>
+    <h2 style="margin:12px 0">PIN</h2>
+    <input class="text center" id="pinInput" type="password" inputmode="numeric" maxlength="8" style="font-size:24px;letter-spacing:8px" />
+    <p class="sm danger" id="pinErr" style="margin-top:8px">&nbsp;</p>
+    <button class="btn primary full" style="margin-top:8px" data-action="unlock">Deblochează</button>
+  </div>`;
+  $overlay.classList.add("show");
+  setTimeout(()=>document.getElementById("pinInput")?.focus(),50);
+}
+
+/* ═══════════════════ 10. EXPORT / IMPORT ═══════════════════ */
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download=`minus10-backup-${todayKey()}.json`; a.click();
+  URL.revokeObjectURL(url);
+  state.settings.lastBackup=todayKey(); save(); render();
+}
+function importData(){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json";
+  inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const r=new FileReader();
+    r.onload=()=>{ try{ const d=JSON.parse(r.result); state=migrate(d); save(); app.unlocked=true; render(); }
+      catch(e){ alert("Fișier invalid."); } }; r.readAsText(f); };
+  inp.click();
+}
+
+/* ═══════════════════ 11. EVENT DELEGATION ═══════════════════ */
+// Salvăm poziția de scroll ca să nu sară sus la fiecare re-render.
+document.getElementById("scroll").addEventListener("scroll", e=>{ app._scroll=e.target.scrollTop; });
+
+document.querySelectorAll("#nav button").forEach(b=>{
+  b.addEventListener("click", ()=>{ app.screen=b.dataset.nav; app._scroll=0; render(); });
+});
+
+function readNum(id){ const el=document.getElementById(id); return el?parseFloat(el.value):NaN; }
+
+document.body.addEventListener("click", (e)=>{
+  const btn=e.target.closest("[data-action]"); if(!btn) return;
+  const a=btn.dataset.action;
+
+  // toggles: "t:field"
+  if(a.startsWith("t:")) return toggle(a.slice(2));
+  // counters
+  if(a.startsWith("prot:")){ const v=a.split(":")[1];
+    if(v==="custom"){ const n=readNum("protCustom"); if(n>0) addProtein(Math.round(n)); } else addProtein(parseInt(v)); return; }
+  if(a.startsWith("water:")) return addWater(parseInt(a.split(":")[1]));
+  if(a.startsWith("steps:")){ const v=a.split(":")[1];
+    if(v==="custom"){ const n=readNum("stepCustom"); if(n>0) addSteps(Math.round(n)); } else addSteps(parseInt(v)); return; }
+  if(a.startsWith("cig:")) { const k=todayKey(); return setLog(k,{cigarettes:Math.max(0,getLog(k).cigarettes+parseInt(a.split(":")[1]))}); }
+
+  switch(a){
+    case "hard": return showHard();
+    case "shorten": return setLog(todayKey(),{fastShortened:true});
+    case "close-modal": return closeOverlay();
+    case "apply-update": return applyUpdate();
+
+    case "save-weight": { const v=readNum("wInput"); if(v>0){ logWeight(v); } return; }
+    case "save-waist": { logWaist(readNum("waistInput"), readNum("bellyInput")); return; }
+
+    case "edit-why": { const v=prompt(S.jWhy, state.profile.why); if(v!=null){ state.profile.why=v.trim()||state.profile.why; save(); render(); } return; }
+    case "edit-window": {
+      const s=prompt("Ora de start (HH:MM)", state.settings.eatStart); if(s==null) return;
+      const en=prompt("Ora de final (HH:MM)", state.settings.eatEnd); if(en==null) return;
+      if(/^\d{1,2}:\d{2}$/.test(s)&&/^\d{1,2}:\d{2}$/.test(en)){ state.settings.eatStart=s; state.settings.eatEnd=en; save(); render(); } return; }
+
+    case "export": return exportData();
+    case "import": return importData();
+    case "toggle-smoke": state.settings.showSmoking=!state.settings.showSmoking; save(); render(); return;
+    case "toggle-pin": {
+      if(state.settings.pin){ if(confirm("Scoți PIN-ul?")){ state.settings.pin=null; save(); render(); } }
+      else { const p=prompt("Alege un PIN (cifre):"); if(p&&/^\d{3,8}$/.test(p)){ state.settings.pin=p; app.unlocked=true; save(); render(); } else if(p) alert("PIN invalid (3–8 cifre)."); }
+      return; }
+    case "unlock": {
+      const v=document.getElementById("pinInput").value;
+      if(v===state.settings.pin){ app.unlocked=true; closeOverlay(); render(); }
+      else { document.getElementById("pinErr").textContent="PIN greșit. Mai încearcă."; }
+      return; }
+
+    case "relog-blood": return relogBlood();
+
+    case "finish-onboarding": {
+      const v=id=>document.getElementById(id).value;
+      const n=id=>{ const x=parseFloat(v(id)); return isFinite(x)?x:null; };
+      const p=state.profile;
+      p.name=(v("obName")||"").trim();
+      p.age = n("obAge") ?? p.age;
+      p.heightCm = n("obHeight") ?? p.heightCm;
+      const sw = n("obStartW") ?? p.startWeightKg;
+      const gw = n("obGoalW") ?? p.goalWeightKg;
+      p.startWeightKg = sw;
+      p.goalWeightKg = gw;
+      const why=v("obWhy").trim(); p.why = why||p.why;
+      // Prima înregistrare reală de greutate & talie/burtă (înlocuiește șablonul).
+      const today=todayKey();
+      state.weightHistory=[{date:today, kg:Math.round(sw*10)/10}];
+      const waist=n("obWaist"), belly=n("obBelly");
+      state.waistHistory=[{date:today, waist:waist??CONFIG.startWaistCm, belly:belly??CONFIG.startBellyCm}];
+      state.celebrated=[];   // pornim curat — niciun prag „atins" din șablon
+      p.onboarded=true; save(); closeOverlay(); app.screen="azi"; render(); return; }
+  }
+
+  // training-day toggles: "td:N"
+  if(a.startsWith("td:")){ const d=parseInt(a.slice(3));
+    const set=new Set(state.settings.trainingDays);
+    set.has(d)?set.delete(d):set.add(d);
+    state.settings.trainingDays=[...set].sort(); save(); render(); return; }
+});
+
+function relogBlood(){
+  // Pornim de la ultima (dacă există) ca să completezi doar ce s-a schimbat.
+  const last=state.bloodHistory[state.bloodHistory.length-1] || {};
+  const fields=[["hdl","HDL"],["ldl","LDL"],["nonHdl","Non-HDL"],["total","Colesterol total"],
+    ["trig","Trigliceride"],["glucose","Glucoză"],["alt","ALT"],["ast","AST"],
+    ["creatinine","Creatinină"],["magnesium","Magneziu"]];
+  const entry={date:todayKey()};
+  for(const [f,label] of fields){
+    const v=prompt(label+" (lasă gol = neschimbat)", last[f]??"");
+    if(v===null) return; // a anulat
+    entry[f]= v.trim()===""? last[f] : parseFloat(v);
+  }
+  state.bloodHistory.push(entry); save(); render();
+  alert("Analize salvate. Vei vedea direcția față de data trecută. 💚");
+}
+
+/* ═══════════════════ 12. SERVICE WORKER + UPDATE BANNER ═══════════════════ */
+let waitingWorker=null;
+function applyUpdate(){
+  if(waitingWorker){ waitingWorker.postMessage({type:"SKIP_WAITING"}); }
+  document.getElementById("update").classList.remove("show");
+}
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("./service-worker.js").then(reg=>{
+      // Dacă există deja unul în așteptare → arată bannerul.
+      if(reg.waiting && navigator.serviceWorker.controller){ waitingWorker=reg.waiting; showUpdate(); }
+      reg.addEventListener("updatefound", ()=>{
+        const nw=reg.installing;
+        nw && nw.addEventListener("statechange", ()=>{
+          if(nw.state==="installed" && navigator.serviceWorker.controller){ waitingWorker=nw; showUpdate(); }
+        });
+      });
+    }).catch(()=>{});
+    let reloaded=false;
+    navigator.serviceWorker.addEventListener("controllerchange", ()=>{ if(!reloaded){ reloaded=true; location.reload(); } });
+  });
+}
+function showUpdate(){ document.getElementById("update").classList.add("show"); }
+
+/* ═══════════════════ START ═══════════════════ */
+checkMilestone(); // sărbătorește dacă ai importat date deja sub un prag
+render();
+</script>
+</body>
+</html>
