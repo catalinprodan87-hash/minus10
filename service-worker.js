@@ -6,7 +6,7 @@
 // the app shows an "actualizare disponibilă" banner. Tapping it calls
 // skipWaiting() and reloads onto the fresh version. So you can NEVER get stuck
 // on a stale build.
-const CACHE_VERSION = 'minus10-v2';   // <-- bump this each deploy (v2, v3, ...)
+const CACHE_VERSION = 'minus10-v3';   // <-- bump this each deploy (v2, v3, ...)
 
 // Everything the app needs to run with no network at all.
 const APP_SHELL = [
@@ -16,6 +16,10 @@ const APP_SHELL = [
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
+  './fonts/jakarta-latin.woff2',
+  './fonts/jakarta-latinext.woff2',
+  './fonts/oswald-latin.woff2',
+  './fonts/oswald-latinext.woff2',
 ];
 
 // Install: pre-cache the whole shell, then become the waiting worker.
