@@ -6,7 +6,7 @@
 // the app shows an "actualizare disponibilă" banner. Tapping it calls
 // skipWaiting() and reloads onto the fresh version. So you can NEVER get stuck
 // on a stale build.
-const CACHE_VERSION = 'minus10-v5';   // <-- bump this each deploy (v2, v3, ...)
+const CACHE_VERSION = 'minus10-v6';   // <-- bump this each deploy (v2, v3, ...)
 
 // Everything the app needs to run with no network at all.
 const APP_SHELL = [

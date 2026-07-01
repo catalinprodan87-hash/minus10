@@ -148,6 +148,11 @@
     font-size:11px; font-weight:700; padding:3px 10px;}
   .whdel{width:26px; height:26px; border-radius:8px; background:transparent; border:1px solid var(--hair);
     color:var(--muted); font-size:12px; line-height:1;}
+  /* comutator segmentat (ton) */
+  .seg2{display:inline-flex; background:var(--track); border:1px solid var(--hair); border-radius:999px; padding:3px;}
+  .seg2 .segbtn{min-height:34px; padding:0 15px; border-radius:999px; background:transparent; color:var(--muted);
+    font-size:13px; font-weight:700;}
+  .seg2 .segbtn.on{background:var(--lime); color:#16191D;}
   input[type=date].text{color-scheme:dark;}
   .hero{font-size:66px; line-height:.85; letter-spacing:-1px; margin:6px 0 0;}
   .calm{color:var(--muted); font-size:14px; line-height:1.45; margin-top:14px;}
@@ -258,6 +263,14 @@
     padding:13px 16px; font-weight:750; align-items:center; justify-content:space-between; gap:10px;
     box-shadow:0 10px 30px rgba(0,0,0,.4);}
   #update.show{display:flex;}
+  /* Backup nudge banner */
+  #backup{position:fixed; left:12px; right:12px; bottom:calc(var(--safe-b) + 84px); z-index:59;
+    display:none; background:var(--surface); border:1px solid var(--bd-lime); color:var(--text); border-radius:14px;
+    padding:11px 12px 11px 14px; font-size:13.5px; font-weight:600; align-items:center; gap:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);}
+  #backup.show{display:flex;}
+  #backup .bx{width:30px; height:30px; flex:none; border-radius:9px; background:transparent; border:none;
+    color:var(--muted); font-size:14px;}
 
   .ringwrap{display:flex; align-items:center; gap:16px;}
   .seg{display:flex; gap:8px;} .seg .pill{flex:1; justify-content:center;}
@@ -281,6 +294,11 @@
   <span>O actualizare e gata.</span>
   <button class="btn sm" style="background:#16191D;color:var(--lime)" data-action="apply-update">Reîmprospătează</button>
 </div>
+<div id="backup">
+  <span class="grow">🛟 Fă o copie de siguranță — să nu pierzi istoricul.</span>
+  <button class="btn sm" style="background:var(--lime);color:#16191D;font-weight:800" data-action="export">Salvează</button>
+  <button class="bx" data-action="backup-dismiss" aria-label="închide">✕</button>
+</div>
 
 <script>
 "use strict";
@@ -292,8 +310,10 @@
    ════════════════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════ 1. STRINGS — tot textul, într-un loc ═══════════════════
-   Editează AICI orice formulare. Totul e în română, „tu", informal. */
-const S = {
+   Editează AICI orice formulare. Totul e în română, „tu", informal.
+   S = varianta „Blând" (implicită). Mai jos, STRINGS_DIRECT suprascrie doar
+   cheile cu voce de coach când alegi tonul „Direct" din Jurnal. */
+const STRINGS_BASE = {
   appTitle:"−10 · drumul meu",
   nav:{azi:"AZI", saptamana:"SĂPTĂMÂNĂ", progres:"PROGRES", jurnal:"JURNAL"},
 
@@ -420,7 +440,41 @@ const S = {
   coffeeBody:"Ultimul espresso pe la 14:00. Cofeina târziu îți strică somnul și poate hrăni anxietatea. 3 espresso/zi e ok — doar mută-le devreme.",
   suppGP:"Toate sunt opționale. Verifică-le cu medicul tău, mai ales magneziul și omega-3.",
   backpackNote:"Opțional, mai târziu: un rucsac încărcat + 1 bandă elastică deblochează progresii noi. Util, dar deloc obligatoriu.",
+  // Ton (Jurnal → Datele tale)
+  toneLabel:"Ton", toneGentle:"Blând", toneDirect:"Direct",
 };
+
+/* Varianta „Direct" — mai la obiect, fără voce de coach. Suprascrie DOAR
+   cheile care contează; restul rămân din varianta blândă. */
+const STRINGS_DIRECT = {
+  motiv:[
+    "{lost} kg jos. Mai ai {rem} până la 70. Continuă.",
+    "Ai slăbit {lost} kg. Ține direcția.",
+    "Trend în jos. Încă {rem} kg. Fă-ți ziua.",
+    "Proteine, pași, apă, somn. Simplu. La treabă.",
+    "Pofta trece. Nu o hrăni pe pilot automat.",
+    "{rem} kg până la țintă. Constant, nu grăbit.",
+  ],
+  motivStart:"Începi de la greutatea de azi. Fără dramă — doar înainte.",
+  calmTail:"Fă-ți ziua bună.",
+  proteinAntidote:"țintă proteine",
+  trendNoise:"Cifra zilnică e zgomot (apă/sare). Contează trendul.",
+  fastShortened:"Ai scurtat postul azi. Zero penalizare.",
+  streakPaused:"Serie în pauză — nu resetată.",
+  backfillNote:"Completezi o zi trecută. Bifează ce știi.",
+  hardTitle:"Respiră. Trece.",
+  hardBody:"Pofta e un val — 2-3 minute și scade. De multe ori e medicamentul sau stresul, nu foame reală.\n\nInspiră 4 · ține 4 · expiră 6. De trei ori.\n\nDacă mănânci, alege proteină: te satură real.",
+  hardClose:"Gata, a trecut.",
+  milestoneBody1:"Ai slăbit {lost} kg.", milestoneBody2:"Continuă.",
+  obIntro:"Aplicația ta, local și offline. Completezi câteva cifre o singură dată — rămân pe telefon. Apoi la treabă.",
+};
+
+// S = obiectul de text activ. applyTone() îl comută în funcție de setare.
+let S = STRINGS_BASE;
+function applyTone(){
+  S = (state && state.settings && state.settings.tone==="direct")
+    ? Object.assign({}, STRINGS_BASE, STRINGS_DIRECT) : STRINGS_BASE;
+}
 
 /* ═══════════════════ 2. CONFIG — cifrele tale, comentate ═══════════════════
    Schimbă AICI orice țintă. Caloriile se recalculează singure la fiecare
@@ -493,7 +547,7 @@ function defaultState(){
     settings:{
       eatStart:CONFIG.eatStart, eatEnd:CONFIG.eatEnd,
       trainingDays:CONFIG.trainingDays.slice(),
-      showSmoking:false, pin:null,
+      showSmoking:false, pin:null, tone:"gentle",
       lastBackup:null,
     },
     dailyLogs:{},          // { "2026-06-30": {…} }
@@ -534,6 +588,7 @@ function migrate(data){
   return out;
 }
 let state = loadState();
+applyTone();   // alege textele Blând/Direct în funcție de setare
 
 function save(){
   try{
@@ -714,6 +769,7 @@ function render(){
   else if(app.screen==="progres") renderProgres();
   else if(app.screen==="jurnal") renderJurnal();
   document.getElementById("scroll").scrollTop = app._scroll||0;
+  maybeShowBackup();
 }
 
 /* ── AZI ── */
@@ -1155,6 +1211,13 @@ function renderJurnal(){
       <button class="btn sm grow" data-action="toggle-pin">🔒 ${state.settings.pin?S.pinOff:S.pinOn}</button>
       <button class="btn sm grow" data-action="toggle-smoke">🚬 ${S.showSmoke} ${state.settings.showSmoking?"✓":""}</button>
     </div>
+    <div class="between" style="margin-top:14px">
+      <span class="sm muted">${S.toneLabel}</span>
+      <div class="seg2">
+        <button class="segbtn ${state.settings.tone!=="direct"?"on":""}" data-action="tone:gentle">${S.toneGentle}</button>
+        <button class="segbtn ${state.settings.tone==="direct"?"on":""}" data-action="tone:direct">${S.toneDirect}</button>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -1267,12 +1330,38 @@ function renderLock(){
 }
 
 /* ═══════════════════ 10. EXPORT / IMPORT ═══════════════════ */
-function exportData(){
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+function markBackup(){ state.settings.lastBackup=todayKey(); app.backupDismissed=true; save(); render(); }
+function downloadBackup(json){
+  const blob=new Blob([json],{type:"application/json"});
   const url=URL.createObjectURL(blob), a=document.createElement("a");
   a.href=url; a.download=`minus10-backup-${todayKey()}.json`; a.click();
   URL.revokeObjectURL(url);
-  state.settings.lastBackup=todayKey(); save(); render();
+}
+// Copie de siguranță: preferă foaia nativă de „Share" (iOS/Android) — dintr-o
+// atingere trimiți fișierul în Fișiere / Note / Mail. Cade elegant pe descărcare
+// unde partajarea de fișiere nu e disponibilă. Datele nu pleacă nicăieri automat.
+async function shareBackup(){
+  const json=JSON.stringify(state,null,2);
+  const file=new File([json], `minus10-backup-${todayKey()}.json`, {type:"application/json"});
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:"Copie de siguranță −10"});
+      markBackup();
+    } else { downloadBackup(json); markBackup(); }
+  }catch(err){
+    if(err && err.name==="AbortError") return;   // ai închis foaia de share
+    downloadBackup(json); markBackup();          // altă eroare → descărcare
+  }
+}
+// Nevoie de backup: niciodată salvat, sau au trecut > 14 zile.
+function backupOverdue(){
+  const lb=state.settings.lastBackup;
+  return !lb || daysBetween(lb, todayKey())>14;
+}
+function maybeShowBackup(){
+  const el=document.getElementById("backup");
+  const show = state.profile.onboarded && backupOverdue() && !app.backupDismissed;
+  el.classList.toggle("show", !!show);
 }
 function importData(){
   const inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json";
@@ -1298,6 +1387,7 @@ document.body.addEventListener("click", (e)=>{
 
   // toggles: "t:field"
   if(a.startsWith("t:")) return toggle(a.slice(2));
+  if(a.startsWith("tone:")){ state.settings.tone=a.split(":")[1]; applyTone(); save(); render(); return; }
   // counters
   if(a.startsWith("protfood:")){ const f=PROTEIN_FOODS[parseInt(a.split(":")[1])]; if(f) addProtein(f.g); return; }
   if(a.startsWith("prot:")){ const v=a.split(":")[1];
@@ -1327,7 +1417,8 @@ document.body.addEventListener("click", (e)=>{
       const en=prompt("Ora de final (HH:MM)", state.settings.eatEnd); if(en==null) return;
       if(/^\d{1,2}:\d{2}$/.test(s)&&/^\d{1,2}:\d{2}$/.test(en)){ state.settings.eatStart=s; state.settings.eatEnd=en; save(); render(); } return; }
 
-    case "export": return exportData();
+    case "export": return shareBackup();
+    case "backup-dismiss": app.backupDismissed=true; return maybeShowBackup();
     case "import": return importData();
     case "toggle-smoke": state.settings.showSmoking=!state.settings.showSmoking; save(); render(); return;
     case "toggle-pin": {
