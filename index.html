@@ -1194,7 +1194,7 @@ function exportData(){
 function importData(){
   const inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json";
   inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const r=new FileReader();
-    r.onload=()=>{ try{ const d=JSON.parse(r.result); state=migrate(d); save(); app.unlocked=true; render(); }
+    r.onload=()=>{ try{ const d=JSON.parse(r.result); state=migrate(d); save(); app.unlocked=true; render(); alert("Date importate cu succes."); }
       catch(e){ alert("Fișier invalid."); } }; r.readAsText(f); };
   inp.click();
 }
