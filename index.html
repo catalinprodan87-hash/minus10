@@ -138,6 +138,17 @@
 
   /* ════ COMPONENTE DIRECȚIA C ════ */
   .eyebrow{font-size:12px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted);}
+  /* bara de dată (backfill) */
+  .datebar{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;}
+  .datebar .dnav{width:40px; height:40px; border-radius:12px; background:var(--surface); border:1px solid var(--hair);
+    color:var(--text); font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center;}
+  .datebar .dnav.off{opacity:.3;}
+  .datebar .dlabel{flex:1; text-align:center; display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .datebar .dtoday{background:rgba(200,255,60,.14); color:var(--lime); border:none; border-radius:999px;
+    font-size:11px; font-weight:700; padding:3px 10px;}
+  .whdel{width:26px; height:26px; border-radius:8px; background:transparent; border:1px solid var(--hair);
+    color:var(--muted); font-size:12px; line-height:1;}
+  input[type=date].text{color-scheme:dark;}
   .hero{font-size:66px; line-height:.85; letter-spacing:-1px; margin:6px 0 0;}
   .calm{color:var(--muted); font-size:14px; line-height:1.45; margin-top:14px;}
   .focal{border:1px solid var(--bd-lime); border-radius:22px;}
@@ -189,18 +200,18 @@
 
   /* Weekly grid */
   .week{display:grid; grid-template-columns:1fr; gap:8px;}
-  .day{display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:12px 14px; border-radius:13px;
-    background:var(--surface2); border:1px solid var(--line);}
+  .day{display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:14px 15px; border-radius:16px;
+    background:var(--surface); border:1px solid var(--hair);}
   .day .dname{flex:1 1 auto; min-width:max-content;}   /* won't shrink below its text → tags wrap below when crowded */
   .day .tags{display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; flex-shrink:0; margin-left:auto;}
-  .day.today{border-color:var(--accent); background:rgba(16,185,129,.10);}
+  .day.today{border-color:var(--bd-lime); background:rgba(200,255,60,.08);}
   .day .dn{width:42px; font-weight:750; font-size:13px; color:var(--muted);}
-  .tag{font-size:11px; font-weight:750; padding:3px 9px; border-radius:999px;}
-  .tag.forta{background:rgba(52,211,153,.16); color:var(--accent2);}
-  .tag.sport{background:rgba(96,165,250,.16); color:#7cb1ff;}
-  .tag.odihna{background:rgba(148,163,184,.14); color:#aab8d4;}
-  .tag.treat{background:rgba(252,211,77,.16); color:var(--gold);}
-  .tag.weigh{background:rgba(248,113,113,.15); color:#ffb4b4;}
+  .tag{font-size:11px; font-weight:750; padding:4px 10px; border-radius:999px;}
+  .tag.forta{background:rgba(200,255,60,.15); color:var(--lime);}
+  .tag.sport{background:transparent; color:var(--lime); border:1px solid var(--bd-lime);}
+  .tag.odihna{background:var(--track); color:var(--muted);}
+  .tag.treat{background:rgba(232,178,125,.15); color:var(--amber);}
+  .tag.weigh{background:transparent; color:var(--amber); border:1px solid var(--bd-amber);}
 
   /* Health table */
   table{width:100%; border-collapse:collapse; font-size:14px;}
@@ -302,7 +313,9 @@ const S = {
   todayPct:"complet azi",
   hello:"Bună", toGoal:"spre obiectiv", streakShort:"zile la rând",
   calmTail:"Fetița ta are nevoie de un tată în formă. 💚",
-  listToday:"Lista de azi",
+  calLine:"Țintă azi: {t} kcal · mentenanță ~{m}",
+  editDay:"EDITEZ ZIUA", backToday:"azi", listToday:"Lista zilei",
+  backfillNote:"Completezi o zi trecută — bifează ce-ți amintești. Fără stres, doar ca să fie istoricul întreg.",
   windowLabel:"FEREASTRA DE MÂNCARE",
   untilMeal:"până la masă", untilClose:"până se închide", eveningFast:"post de seară",
   // Checklist
@@ -354,6 +367,8 @@ const S = {
   progTitle:"Progresul tău",
   current:"Acum", goal:"Țintă", lost:"Slăbit", toGo:"Mai ai",
   pctToGoal:"din drum spre 70 kg",
+  trendLabel:"Trend 7 zile",
+  trendNoise:"Cifra de pe cântar urcă și coboară cu apa și sarea — trendul e busola ta. 💚",
   projected:"Ritm recent → atingi 70 kg pe la",
   projNone:"Încă strâng date despre ritm. Mai cântărește-te de câteva ori și apare estimarea.",
   streak:"Serie curentă", streakDays:"zile", streakPaused:"În pauză — seria te așteaptă, nu a dispărut. 🤍", bestStreak:"cel mai bun",
@@ -372,6 +387,7 @@ const S = {
   // Jurnal
   jTitle:"Jurnal",
   jWeight:"Cântărire", jWeightSub:"Sâmbătă dimineața, pe nemâncate, după baie. Dar orice zi e bună.",
+  jWeightDate:"Data (poți pune o zi trecută)", jHistory:"Istoric cântăriri",
   jWaist:"Talie & burtă (cm)", kg:"kg", cm:"cm", save:"Salvează",
   jPlan:"Planul tău", jWhy:"„De ce”-ul tău", jWindow:"Fereastra de mâncare",
   jTraining:"Zile de forță", jStepGoal:"Țintă pași azi",
@@ -641,19 +657,26 @@ function bestStreak(){
 }
 
 /* ═══════════════════ 6. ACȚIUNI (mutate → save → render) ═══════════════════ */
+// Ziua pe care o vezi/editezi (implicit azi). Backfill = navighezi în trecut.
+function curDate(){ return app.date || todayKey(); }
 function setLog(k, patch){ state.dailyLogs[k]={...getLog(k), ...patch}; save(); render(); }
-function addProtein(g){ const k=todayKey(); setLog(k,{proteinG:Math.max(0,getLog(k).proteinG+g)}); }
-function addWater(ml){ const k=todayKey(); setLog(k,{waterMl:Math.max(0,getLog(k).waterMl+ml)}); }
-function addSteps(n){ const k=todayKey(); setLog(k,{steps:Math.max(0,getLog(k).steps+n)}); }
-function toggle(field){ const k=todayKey(); setLog(k,{[field]:!getLog(k)[field]}); }
+function addProtein(g){ const k=curDate(); setLog(k,{proteinG:Math.max(0,getLog(k).proteinG+g)}); }
+function addWater(ml){ const k=curDate(); setLog(k,{waterMl:Math.max(0,getLog(k).waterMl+ml)}); }
+function addSteps(n){ const k=curDate(); setLog(k,{steps:Math.max(0,getLog(k).steps+n)}); }
+function toggle(field){ const k=curDate(); setLog(k,{[field]:!getLog(k)[field]}); }
 
-function logWeight(kg){
+function logWeight(kg, dk){
   if(!(kg>0)) return;
-  const k=todayKey();
+  const k=dk||todayKey();
   state.weightHistory=state.weightHistory.filter(e=>e.date!==k);
   state.weightHistory.push({date:k, kg:Math.round(kg*10)/10});
   state.weightHistory.sort((a,b)=>a.date<b.date?-1:1);
   save(); checkMilestone(); render();
+}
+function deleteWeight(dk){
+  if(state.weightHistory.length<=1) return;   // păstrăm mereu cel puțin o intrare
+  state.weightHistory=state.weightHistory.filter(e=>e.date!==dk);
+  save(); render();
 }
 function logWaist(waist, belly){
   const k=todayKey();
@@ -674,7 +697,7 @@ function checkMilestone(){
 }
 
 /* ═══════════════════ 7. RENDER ═══════════════════ */
-const app = {screen:"azi", unlocked:false};
+const app = {screen:"azi", unlocked:false, date:todayKey()};
 const $screen = document.getElementById("screen");
 const $overlay = document.getElementById("overlay");
 
@@ -734,9 +757,9 @@ function fastingInfo(){
   return {win, count:"✓", label:S.eveningFast, pct:100};
 }
 function renderAzi(){
-  const k=todayKey(), l=getLog(k), p=planFor(k), t=computeTargets(currentWeight());
-  const pct=Math.round(dayScore(k)*100);
-  const fs=fastingStatus();
+  const k=curDate(), l=getLog(k), p=planFor(k), t=computeTargets(currentWeight());
+  const isToday = k===todayKey();
+  const dk=parseKey(k);
   const sg=stepGoalToday();
   const wk = p.type==="forta"?{t:S.workoutForta,s:S.workoutFortaSub}
            : p.type==="sport"?{t:S.workoutSport,s:S.workoutSportSub}
@@ -744,7 +767,6 @@ function renderAzi(){
 
   const goalP=CONFIG.proteinGoalG, goalW=CONFIG.waterGoalMl;
   const w=currentWeight(), name=state.profile.name;
-  const fi=fastingInfo();
   const wkIcon = p.type==="forta"?"🏋️" : p.type==="sport"?"⚽" : "😌";
   // n/8 pentru antetul listei (cele 8 lucruri bifabile).
   const items=[l.fastOk, l.proteinG>=goalP, l.waterMl>=goalW, l.steps>=sg,
@@ -752,41 +774,59 @@ function renderAzi(){
   const done=items.filter(Boolean).length;
   const ckDot=on=>`<span class="ck ${on?"on":""}">✓</span>`;
 
+  // Bara de dată — navighezi în trecut pentru a completa o zi uitată.
   let html = `
-  <!-- Greeting -->
-  <p class="eyebrow">${S.nav.azi} · ${S.days[parseKey(k).getDay()].toUpperCase()}, ${parseKey(k).getDate()} ${MON3[parseKey(k).getMonth()]}</p>
-  <h1 style="font-size:21px;margin:8px 0 0">${S.hello}${name?", "+name:""}.</h1>
-  <div class="hero num">${w.toFixed(1)}<span class="u">KG</span></div>
-  <p class="calm">${calmLine()}</p>
+  <div class="datebar">
+    <button class="dnav" data-action="date-prev" aria-label="zi anterioară">‹</button>
+    <div class="dlabel"><span class="eyebrow">${isToday?S.nav.azi:S.editDay} · ${S.days[dk.getDay()].toUpperCase()}, ${dk.getDate()} ${MON3[dk.getMonth()]}</span>
+      ${isToday?"":`<button class="dtoday" data-action="date-today">${S.backToday}</button>`}</div>
+    <button class="dnav ${isToday?"off":""}" data-action="date-next" ${isToday?"disabled":""} aria-label="zi următoare">›</button>
+  </div>`;
 
-  <!-- Metric strip -->
-  <div class="tiles">
-    <div class="tile"><div class="v num" style="color:var(--lime)">${Math.round(pctToGoal())}%</div><div class="l">${S.toGoal}</div></div>
-    <div class="tile"><div class="v num" style="color:var(--amber)">${computeStreak().count} 🔥</div><div class="l">${S.streakShort}</div></div>
-  </div>
+  if(isToday){
+    const fi=fastingInfo();
+    html += `
+    <!-- Greeting -->
+    <h1 style="font-size:21px;margin:2px 0 0">${S.hello}${name?", "+name:""}.</h1>
+    <div class="hero num">${w.toFixed(1)}<span class="u">KG</span></div>
+    <p class="calm">${calmLine()}</p>
 
-  <!-- Focal: fereastra de mâncare -->
-  <div class="card focal">
-    <div class="between" style="align-items:flex-start">
-      <div>
-        <div class="eyebrow" style="color:var(--lime);letter-spacing:.6px">${S.windowLabel}</div>
-        <div style="font-size:19px;font-weight:700;margin-top:5px">${fi.win}</div>
-      </div>
-      <div style="text-align:right">
-        <div class="num" style="font-size:28px;color:var(--lime)">${fi.count}</div>
-        <div class="faint" style="font-size:10.5px">${fi.label}</div>
-      </div>
+    <!-- Metric strip -->
+    <div class="tiles">
+      <div class="tile"><div class="v num" style="color:var(--lime)">${Math.round(pctToGoal())}%</div><div class="l">${S.toGoal}</div></div>
+      <div class="tile"><div class="v num" style="color:var(--amber)">${computeStreak().count} 🔥</div><div class="l">${S.streakShort}</div></div>
     </div>
-    <div style="margin:13px 0 11px">${bar(fi.pct,100)}</div>
-    <div class="between">
-      ${l.fastShortened
-        ? `<span class="sm" style="color:var(--amber)">${S.fastShortened}</span>`
-        : `<button class="moment" style="min-height:auto;width:auto;padding:0;background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:500;text-decoration:underline;justify-content:flex-start" data-action="shorten">${S.fastShorten}</button>`}
-      <button class="donechip" style="width:auto;padding:6px 11px;border-radius:999px" data-action="t:fastOk">${ckDot(l.fastOk)} <span style="font-size:12.5px">${S.fastOkLabel}</span></button>
-    </div>
-  </div>
+    <p class="sm muted" style="margin:2px 2px 14px">${S.calLine.replace("{t}",t.dailyTarget).replace("{m}",t.maintenance)}</p>
 
-  <!-- Lista de azi -->
+    <!-- Focal: fereastra de mâncare -->
+    <div class="card focal">
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <div class="eyebrow" style="color:var(--lime);letter-spacing:.6px">${S.windowLabel}</div>
+          <div style="font-size:19px;font-weight:700;margin-top:5px">${fi.win}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="num" style="font-size:28px;color:var(--lime)">${fi.count}</div>
+          <div class="faint" style="font-size:10.5px">${fi.label}</div>
+        </div>
+      </div>
+      <div style="margin:13px 0 11px">${bar(fi.pct,100)}</div>
+      <div class="between">
+        ${l.fastShortened
+          ? `<span class="sm" style="color:var(--amber)">${S.fastShortened}</span>`
+          : `<button class="moment" style="min-height:auto;width:auto;padding:0;background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:500;text-decoration:underline;justify-content:flex-start" data-action="shorten">${S.fastShorten}</button>`}
+        <button class="donechip" style="width:auto;padding:6px 11px;border-radius:999px" data-action="t:fastOk">${ckDot(l.fastOk)} <span style="font-size:12.5px">${S.fastOkLabel}</span></button>
+      </div>
+    </div>`;
+  } else {
+    // Zi trecută — fără cronometru live, doar completezi ce-ți amintești.
+    html += `
+    <p class="calm" style="margin:14px 0 4px">${S.backfillNote}</p>
+    <button class="donechip ${l.fastOk?"on":""}" style="margin-bottom:4px" data-action="t:fastOk">${ckDot(l.fastOk)} ${S.fastOkLabel}</button>`;
+  }
+
+  html += `
+  <!-- Lista zilei -->
   <div class="listhead"><h3>${S.listToday}</h3><span class="ct">${done} / 8</span></div>
 
   <!-- Proteine -->
@@ -842,8 +882,7 @@ function renderAzi(){
   </div>
   <button class="dashrow ${l.supplements?"on":""}" data-action="t:supplements">${ckDot(l.supplements)} ${S.suppLabel} <span class="faint" style="font-size:12px">(opțional)</span></button>
 
-  <!-- Moment greu -->
-  <button class="moment" data-action="hard">🫂 ${S.hardBtn}</button>
+  ${isToday?`<!-- Moment greu --><button class="moment" data-action="hard">🫂 ${S.hardBtn}</button>`:""}
   `;
 
   // Contor opțional de țigări — ascuns până îl pornești din Jurnal.
@@ -855,8 +894,8 @@ function renderAzi(){
     </div>`;
   }
 
-  // Foi de parcurs (cheat-sheets)
-  html += cheatSheets();
+  // Foi de parcurs (cheat-sheets) — doar pe ziua de azi.
+  if(isToday) html += cheatSheets();
   $screen.innerHTML = html;
 }
 
@@ -881,18 +920,40 @@ function renderSaptamana(){
     </div>`;
   }
   $screen.innerHTML = `
-    <h1>${S.weekTitle}</h1>
+    <p class="eyebrow">${S.nav.saptamana}</p>
+    <h1 style="margin:6px 0 0">${S.weekTitle}</h1>
     <p class="muted sm" style="margin:8px 0 16px">${S.weekSub}</p>
     <div class="week">${rows}</div>
     ${cheatSheets()}`;
 }
 
 /* ── PROGRES ── */
+// Medie mobilă pe 7 zile: netezește zgomotul zilnic (apă/sare/mâncare).
+// Linia îngroșată de pe grafic = TRENDUL, nu cifra brută de pe cântar.
+function trendSeries(){
+  const h=state.weightHistory;
+  return h.map((e,i)=>{
+    const cutoff=parseKey(e.date).getTime()-6*86400000;   // fereastră de 7 zile
+    const win=h.filter((f,j)=>j<=i && parseKey(f.date).getTime()>=cutoff);
+    return {date:e.date, kg:win.reduce((s,f)=>s+f.kg,0)/win.length};
+  });
+}
+// Direcția trendului pe ~14 zile + valorile pentru mesajul calm de pe PROGRES.
+function trendInfo(){
+  const h=state.weightHistory; if(h.length<2) return null;
+  const tr=trendSeries(), last=tr[tr.length-1].kg, today=todayKey();
+  let past=tr[0];
+  for(const t of tr){ if(daysBetween(t.date,today)<=14){ past=t; break; } }
+  const diff=last-past.kg;
+  return {trend:Math.round(last*10)/10, reading:h[h.length-1].kg,
+    dir: diff<-0.1?"down":diff>0.1?"up":"flat"};
+}
 function weightChartSVG(){
   const h=state.weightHistory; if(h.length===0) return "";
+  const tr=trendSeries();
   const W=320, H=170, padL=30, padR=10, padT=14, padB=22;
   const goal=state.profile.goalWeightKg;
-  const ys=h.map(e=>e.kg).concat([goal]);
+  const ys=h.map(e=>e.kg).concat(tr.map(e=>e.kg)).concat([goal]);
   let min=Math.min(...ys), max=Math.max(...ys);
   if(max-min<2){min-=1;max+=1;}
   min=Math.floor(min)-0.5; max=Math.ceil(max)+0.5;
@@ -900,20 +961,23 @@ function weightChartSVG(){
   const x1=Math.max(parseKey(h[h.length-1].date).getTime(), x0+86400000);
   const X=t=>padL+((t-x0)/(x1-x0))*(W-padL-padR);
   const Y=v=>padT+(1-(v-min)/(max-min))*(H-padT-padB);
-  const pts=h.map(e=>[X(parseKey(e.date).getTime()), Y(e.kg)]);
-  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
-  const area=`M${pts[0][0].toFixed(1)} ${(H-padB)} `+pts.map(p=>"L"+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ")+` L${pts[pts.length-1][0].toFixed(1)} ${(H-padB)} Z`;
+  // Puncte brute (cântarul zilnic) — estompate; trendul e vedeta.
+  const rawDots=h.map(e=>`<circle cx="${X(parseKey(e.date).getTime()).toFixed(1)}" cy="${Y(e.kg).toFixed(1)}" r="2" fill="#97A0A8" fill-opacity=".45"/>`).join("");
+  // Linia + aria = TRENDUL.
+  const tp=tr.map(e=>[X(parseKey(e.date).getTime()), Y(e.kg)]);
+  const line=tp.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const area=`M${tp[0][0].toFixed(1)} ${(H-padB)} `+tp.map(p=>"L"+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ")+` L${tp[tp.length-1][0].toFixed(1)} ${(H-padB)} Z`;
   const gy=Y(goal);
-  // Punct amber pe ultimul prag de 2 kg atins (ex. 78 kg ✓).
+  // Punct amber pe ultimul prag de 2 kg atins (pe linia de trend).
   const lost=state.profile.startWeightKg-currentWeight();
   let amberDot="";
   if(lost>=2){
-    const m=state.profile.startWeightKg-2*Math.floor(lost/2);   // pragul atins
-    let nearest=pts[0], bestD=Infinity;
-    h.forEach((e,i)=>{ const d=Math.abs(e.kg-m); if(d<bestD){bestD=d; nearest=pts[i];} });
+    const m=state.profile.startWeightKg-2*Math.floor(lost/2);
+    let nearest=tp[0], bestD=Infinity;
+    tr.forEach((e,i)=>{ const d=Math.abs(e.kg-m); if(d<bestD){bestD=d; nearest=tp[i];} });
     amberDot=`<circle cx="${nearest[0].toFixed(1)}" cy="${nearest[1].toFixed(1)}" r="4.5" fill="#E8B27D" stroke="#16191D" stroke-width="2"/>`;
   }
-  const end=pts[pts.length-1];
+  const end=tp[tp.length-1];
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block">
     <defs>
       <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
@@ -927,6 +991,7 @@ function weightChartSVG(){
     <line x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}" stroke="#E8B27D" stroke-width="1.4" stroke-dasharray="5 5"/>
     <text x="${padL+2}" y="${gy-5}" fill="#E8B27D" font-size="9.5">${goal} kg</text>
     <path d="${line}" fill="none" stroke="#C8FF3C" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)"/>
+    ${rawDots}
     ${amberDot}
     <circle cx="${end[0].toFixed(1)}" cy="${end[1].toFixed(1)}" r="4" fill="#C8FF3C"/>
     <text x="${padL}" y="${H-6}" fill="#5b646c" font-size="9.5">${fmtDate(h[0].date)}</text>
@@ -940,7 +1005,7 @@ function miniTrend(history, field, unit){
   return `<b>${last} ${unit}</b> &nbsp;<span class="sm">${dir}</span>`;
 }
 function renderProgres(){
-  const w=currentWeight(), proj=projection(), st=computeStreak();
+  const w=currentWeight(), proj=projection(), st=computeStreak(), ti=trendInfo();
   const wa=state.waistHistory;
   const lost=Math.max(0,Math.round(lostKg()*10)/10);
   const lastW=wa[wa.length-1]||{};
@@ -960,6 +1025,11 @@ function renderProgres(){
       <span class="muted">țintă ${state.profile.goalWeightKg.toFixed(1)}</span>
     </div>
     ${weightChartSVG()}
+    <div class="between" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--hair)">
+      <span class="sm muted">${S.trendLabel}</span>
+      <span class="num" style="font-size:17px">${ti?ti.trend.toFixed(1):"—"}<span class="u" style="font-size:.55em">KG</span> ${ti?({down:'<span style="color:var(--lime)">↓</span>',flat:'<span class="muted">→</span>',up:'<span style="color:var(--amber)">↑</span>'})[ti.dir]:""}</span>
+    </div>
+    ${ti?`<p class="sm muted" style="margin-top:9px;line-height:1.4">🟢 <b style="color:var(--text)">${ti.reading.toFixed(1)}</b> pe cântar azi · trendul e la <b style="color:var(--text)">${ti.trend.toFixed(1)}</b>. ${S.trendNoise}</p>`:""}
   </div>
 
   <div class="tiles">
@@ -1020,22 +1090,35 @@ function renderProgres(){
 }
 
 /* ── JURNAL ── */
+// Istoric de cântăriri, editabil (șterge o intrare greșită).
+function weightHistoryList(){
+  const h=state.weightHistory; if(h.length<=1) return "";
+  const rows=h.slice().reverse().slice(0,12).map(e=>`
+    <div class="between" style="padding:9px 0;border-top:1px solid var(--hair)">
+      <span class="sm muted">${fmtDate(e.date)}</span>
+      <span class="row" style="gap:8px"><span class="num" style="font-size:15px">${e.kg}</span><span class="muted sm">kg</span>
+        <button class="whdel" data-action="delweight:${e.date}" aria-label="șterge">✕</button></span>
+    </div>`).join("");
+  return `<div style="margin-top:16px"><div class="sm muted">${S.jHistory}</div>${rows}</div>`;
+}
 function renderJurnal(){
   const lastW=state.waistHistory[state.waistHistory.length-1]||{};
   const tdays=state.settings.trainingDays;
   const dayBtns=[1,2,3,4,5,6,0].map(d=>`<button class="pill ${tdays.includes(d)?"":""}" style="${tdays.includes(d)?"background:var(--lime);color:#16191D;border-color:var(--lime)":""}" data-action="td:${d}">${S.daysShort[d]}</button>`).join("");
   const lb=state.settings.lastBackup;
   $screen.innerHTML=`
-  <h1>${S.jTitle}</h1>
+  <p class="eyebrow">${S.nav.jurnal}</p>
+  <h1 style="margin:6px 0 0">${S.jTitle}</h1>
 
   <div class="card" style="margin-top:14px">
     <h3>${S.jWeight}</h3>
     <p class="s muted" style="margin:6px 0 10px">${S.jWeightSub}</p>
-    <div class="row">
-      <input class="text" id="wInput" type="number" inputmode="decimal" step="0.1" placeholder="${currentWeight()}" style="flex:1" />
-      <span class="muted">${S.kg}</span>
-      <button class="btn primary" data-action="save-weight">${S.save}</button>
+    <div class="grid2" style="margin-bottom:10px">
+      <div><label class="fld">${S.kg}</label><input class="text" id="wInput" type="number" inputmode="decimal" step="0.1" placeholder="${currentWeight()}"/></div>
+      <div><label class="fld">${S.jWeightDate}</label><input class="text" id="wDate" type="date" value="${todayKey()}" max="${todayKey()}"/></div>
     </div>
+    <button class="btn primary full" data-action="save-weight">${S.save}</button>
+    ${weightHistoryList()}
   </div>
 
   <div class="card">
@@ -1204,7 +1287,7 @@ function importData(){
 document.getElementById("scroll").addEventListener("scroll", e=>{ app._scroll=e.target.scrollTop; });
 
 document.querySelectorAll("#nav button").forEach(b=>{
-  b.addEventListener("click", ()=>{ app.screen=b.dataset.nav; app._scroll=0; render(); });
+  b.addEventListener("click", ()=>{ app.screen=b.dataset.nav; app.date=todayKey(); app._scroll=0; render(); });
 });
 
 function readNum(id){ const el=document.getElementById(id); return el?parseFloat(el.value):NaN; }
@@ -1222,16 +1305,20 @@ document.body.addEventListener("click", (e)=>{
   if(a.startsWith("water:")) return addWater(parseInt(a.split(":")[1]));
   if(a.startsWith("steps:")){ const v=a.split(":")[1];
     if(v==="custom"){ const n=readNum("stepCustom"); if(n>0) addSteps(Math.round(n)); } else addSteps(parseInt(v)); return; }
-  if(a.startsWith("cig:")) { const k=todayKey(); return setLog(k,{cigarettes:Math.max(0,getLog(k).cigarettes+parseInt(a.split(":")[1]))}); }
+  if(a.startsWith("cig:")) { const k=curDate(); return setLog(k,{cigarettes:Math.max(0,getLog(k).cigarettes+parseInt(a.split(":")[1]))}); }
+  if(a.startsWith("delweight:")) return deleteWeight(a.split(":")[1]);
 
   switch(a){
     case "hard": return showHard();
-    case "shorten": return setLog(todayKey(),{fastShortened:true});
+    case "shorten": return setLog(curDate(),{fastShortened:true});
+    case "date-prev": { const d=parseKey(app.date); d.setDate(d.getDate()-1); app.date=dateKey(d); app._scroll=0; return render(); }
+    case "date-next": { const d=parseKey(app.date); d.setDate(d.getDate()+1); const nk=dateKey(d); if(nk<=todayKey()){ app.date=nk; app._scroll=0; render(); } return; }
+    case "date-today": app.date=todayKey(); app._scroll=0; return render();
     case "close-modal": return closeOverlay();
     case "go-progres": closeOverlay(); app.screen="progres"; return render();
     case "apply-update": return applyUpdate();
 
-    case "save-weight": { const v=readNum("wInput"); if(v>0){ logWeight(v); } return; }
+    case "save-weight": { const v=readNum("wInput"); const d=document.getElementById("wDate")?.value||todayKey(); if(v>0){ logWeight(v, d); } return; }
     case "save-waist": { logWaist(readNum("waistInput"), readNum("bellyInput")); return; }
 
     case "edit-why": { const v=prompt(S.jWhy, state.profile.why); if(v!=null){ state.profile.why=v.trim()||state.profile.why; save(); render(); } return; }
